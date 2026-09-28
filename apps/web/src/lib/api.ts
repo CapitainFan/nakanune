@@ -5,6 +5,8 @@ import {
   SourceSchema,
   SourceSyncResponseSchema,
   SubjectSchema,
+  TelegramChatSchema,
+  TelegramStatusSchema,
   TaskSchema,
   type SourceCreateInput,
   type SourceSyncResponse,
@@ -97,6 +99,8 @@ export const api = {
     }
   },
   deleteSource: (id: string) => request(sourcePath(id), nothing, { method: 'DELETE' }),
+  getTelegramStatus: () => request('/api/telegram/status', TelegramStatusSchema),
+  getTelegramChats: () => request('/api/telegram/chats', TelegramChatSchema.array()),
 };
 
 /** Текст ошибки для тоста. */

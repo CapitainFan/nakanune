@@ -40,6 +40,16 @@ const EnvSchema = z.object({
       (key) => key === undefined || Buffer.from(key, 'base64').length === 32,
       'Нужны 32 байта в base64: openssl rand -base64 32',
     ),
+  // Telegram-клиент (этап 5): https://my.telegram.org → API development tools. Без них Telegram
+  // просто выключен. Сама сессия — в базе, зашифрованной (см. telegram/session.ts)
+  TG_API_ID: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.coerce.number().int().positive().optional(),
+  ),
+  TG_API_HASH: z
+    .string()
+    .optional()
+    .transform((hash) => hash?.trim() || undefined),
   // Как часто проверять источники заданий (Moodle, потом Telegram). По умолчанию — раз в час
   CRON_SCHEDULE: z.string().refine(isValidCron, 'Неверное cron-выражение').default('0 * * * *'),
 });

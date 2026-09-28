@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { DueHint } from './dates';
-import { extractTasksFromMessages, extractTasksHeuristic, isQuestion, linksIn } from './extract';
+import {
+  extractTasksFromMessages,
+  extractTasksHeuristic,
+  hasTaskSignal,
+  isQuestion,
+  linksIn,
+} from './extract';
 import { SUBJECTS } from './fixtures';
 import { parseTelegramTranscript } from './transcript';
 
@@ -95,6 +101,19 @@ describe('extractTasksHeuristic', () => {
         confidence: 20,
       }),
     ]);
+  });
+});
+
+describe('hasTaskSignal — префильтр для чатов', () => {
+  it('пропускает похожее на задание, отсекает болтовню и вопросы', () => {
+    expect(hasTaskSignal('422-455 задачи')).toBe(true);
+    expect(hasTaskSignal('2) Квентор new, редизайн квентора')).toBe(true);
+    expect(hasTaskSignal('Найти сайт определитель cms')).toBe(true);
+    expect(hasTaskSignal('Завтра самостоялка по алгебре')).toBe(true);
+    expect(hasTaskSignal('Я свою мышь в универе забыл')).toBe(false);
+    expect(hasTaskSignal('На 3 паре, Я уже еду забирать')).toBe(false);
+    // Вопрос сам не задание: в ИИ он попадёт как контекст к ответу
+    expect(hasTaskSignal('Что по проге на завтра')).toBe(false);
   });
 });
 

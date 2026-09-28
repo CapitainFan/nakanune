@@ -7,18 +7,22 @@
     "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
     "start": "tsx --env-file-if-exists=../../.env src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "tg:login": "tsx --env-file-if-exists=../../.env src/telegram/login.ts",
+    "tg:logout": "tsx --env-file-if-exists=../../.env src/telegram/logout.ts"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",
     "@nakanune/db": "workspace:*",
     "@nakanune/shared": "workspace:*",
+    "big-integer": "^1.6.52",
     "cors": "^2.8.6",
     "date-fns": "catalog:",
     "express": "^5.2.1",
     "node-cron": "^4.6.0",
     "node-html-parser": "^9.0.4",
     "node-ical": "^0.27.2",
+    "teleproto": "^1.229.0",
     "tsx": "^4.23.15",
     "zod": "catalog:"
   },

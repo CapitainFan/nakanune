@@ -11,6 +11,7 @@ import { scheduleRouter } from './routes/schedule';
 import { sourcesRouter } from './routes/sources';
 import { subjectsRouter } from './routes/subjects';
 import { tasksRouter } from './routes/tasks';
+import { telegramRouter } from './routes/telegram';
 
 // Стандартные сообщения zod об ошибках — на русском
 z.config(z.locales.ru());
@@ -31,6 +32,7 @@ export function createApp() {
   app.use('/api/schedule', scheduleRouter);
   app.use('/api/extract', extractRouter);
   app.use('/api/sources', sourcesRouter);
+  app.use('/api/telegram', telegramRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not found' });

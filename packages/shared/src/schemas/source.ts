@@ -18,16 +18,25 @@ export const SourceSchema = z.object({
 export type SourceDto = z.infer<typeof SourceSchema>;
 
 /**
- * Новый источник. Пока — календарь Moodle: «Календарь → Экспорт календаря → Получить URL
- * календаря». В ссылке личный токен: сервер хранит её зашифрованной и назад не отдаёт.
+ * Новый источник:
+ * - календарь Moodle: «Календарь → Экспорт календаря → Получить URL календаря». В ссылке
+ *   личный токен: сервер хранит её зашифрованной и назад не отдаёт;
+ * - чат Telegram: chatId из GET /api/telegram/chats. Название и accessHash сервер берёт
+ *   у Telegram сам, клиенту не доверяет.
  */
-export const SourceCreateSchema = z.object({
-  type: z.literal('MOODLE_ICS'),
-  title: z.string().trim().min(1).max(100).default('Moodle'),
-  url: z
-    .url({ protocol: /^https$/, error: 'Нужна ссылка https://…' })
-    .refine((url) => !/\s/.test(url), 'В ссылке не должно быть пробелов'),
-});
+export const SourceCreateSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('MOODLE_ICS'),
+    title: z.string().trim().min(1).max(100).default('Moodle'),
+    url: z
+      .url({ protocol: /^https$/, error: 'Нужна ссылка https://…' })
+      .refine((url) => !/\s/.test(url), 'В ссылке не должно быть пробелов'),
+  }),
+  z.object({
+    type: z.literal('TELEGRAM'),
+    chatId: z.string().regex(/^\d+$/, 'Неверный id чата'),
+  }),
+]);
 
 export type SourceCreateInput = z.input<typeof SourceCreateSchema>;
 
@@ -52,3 +61,28 @@ export const SourceSyncResponseSchema = z.object({
 });
 
 export type SourceSyncResponse = z.infer<typeof SourceSyncResponseSchema>;
+
+/** Состояние подключения Telegram — GET /api/telegram/status. */
+export const TelegramStatusSchema = z.object({
+  /** В .env заданы TG_API_ID и TG_API_HASH. */
+  configured: z.boolean(),
+  /** Вход выполнен (pnpm tg:login) и сессия действует. */
+  loggedIn: z.boolean(),
+  me: z.object({ name: z.string(), username: z.string().nullable() }).nullable(),
+  /** Почему не подключено — что сделать. */
+  error: z.string().nullable(),
+});
+
+export type TelegramStatus = z.infer<typeof TelegramStatusSchema>;
+
+/** Группа или канал, из которых можно читать задания — GET /api/telegram/chats. */
+export const TelegramChatSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  /** Группа (в том числе супергруппа) или канал (например, канал преподавателя). */
+  isGroup: z.boolean(),
+  /** Уже добавлен как источник. */
+  added: z.boolean(),
+});
+
+export type TelegramChatDto = z.infer<typeof TelegramChatSchema>;

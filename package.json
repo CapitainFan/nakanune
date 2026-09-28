@@ -22,7 +22,9 @@
     "db:migrate": "pnpm --filter @nakanune/db migrate",
     "db:seed": "pnpm --filter @nakanune/db seed",
     "db:reset": "pnpm --filter @nakanune/db reset",
-    "db:studio": "pnpm --filter @nakanune/db studio"
+    "db:studio": "pnpm --filter @nakanune/db studio",
+    "tg:login": "pnpm --filter @nakanune/server tg:login",
+    "tg:logout": "pnpm --filter @nakanune/server tg:logout"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

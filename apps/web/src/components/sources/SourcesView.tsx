@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { TelegramPanel } from '@/components/sources/TelegramPanel';
 import { card, field, ghostButton, primaryButton } from '@/components/ui';
 import { api, describeError } from '@/lib/api';
 import { useTasksStore } from '@/store/tasks';
@@ -125,7 +126,7 @@ export function SourcesView() {
                     <p className="text-sm text-red-700 dark:text-red-400">{source.lastError}</p>
                   )}
                 </div>
-                {source.type === 'MOODLE_ICS' && (
+                {(source.type === 'MOODLE_ICS' || source.type === 'TELEGRAM') && (
                   <div className="flex gap-1 text-sm">
                     <button
                       type="button"
@@ -150,9 +151,20 @@ export function SourcesView() {
           </ul>
         )}
         <p className="text-xs text-zinc-500">
-          Сервер сам проверяет календари раз в час, а расписание пар — раз в сутки и при открытии.
+          Сервер сам проверяет календари и чаты раз в час, а расписание пар — раз в сутки и при
+          открытии.
         </p>
       </section>
+
+      <TelegramPanel
+        onAdded={async (source, syncResult) => {
+          setSources((list) => [...(list ?? []), source]);
+          toast.success(`Чат «${source.title}» добавлен`, {
+            description: describeSync(syncResult),
+          });
+          await reloadTasks();
+        }}
+      />
 
       <AddMoodleForm
         onAdded={async (source, syncResult) => {

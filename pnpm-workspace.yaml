@@ -20,8 +20,10 @@ catalog:
 allowBuilds:
   '@google/genai': false # скрипт — пустой echo
   '@prisma/engines': true # скачивает движок миграций Prisma
+  bufferutil: false # необязательный ускоритель ws (через @google/genai), без сборки работает на JS
   esbuild: true # ставит бинарник esbuild (на нём работает tsx)
   prisma: true
   protobufjs: false # скрипт только печатает предупреждение о версиях
   sharp: false # Next.js берёт готовый бинарник, сборка не нужна
   unrs-resolver: false
+  utf-8-validate: false # то же

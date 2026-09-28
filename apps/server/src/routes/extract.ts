@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { ExtractRequestSchema, parseTelegramTranscript } from '@nakanune/shared';
 import { Router } from 'express';
+import { geminiFromEnv } from '../ai/config';
 import { ingestMessages, type IncomingMessage } from '../ai/ingest';
 import { prisma } from '../db';
-import { env } from '../env';
 import { parseOr400 } from '../lib/http';
 
 export const extractRouter = Router();
@@ -42,7 +42,7 @@ extractRouter.post('/', async (req, res) => {
     sourceId: MANUAL_SOURCE_ID,
     sourceLabel: chat ? 'переписка из учебного чата' : 'вставленный текст',
     messages,
-    gemini: env.GEMINI_API_KEY ? { apiKey: env.GEMINI_API_KEY, models: env.GEMINI_MODELS } : null,
+    gemini: geminiFromEnv(),
     now,
     wholeTextFallback: !chat,
   });

@@ -5,6 +5,7 @@ export {
   cleanTitle,
   extractTasksFromMessages,
   extractTasksHeuristic,
+  hasTaskSignal,
   isQuestion,
   linksIn,
   splitClauses,

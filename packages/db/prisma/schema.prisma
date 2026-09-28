@@ -85,7 +85,7 @@ model Source {
   id            String         @id @default(cuid())
   type          SourceType
   title         String
-  config        Json // telegram: { peer } | ics: { urlEncrypted } | расписание: { url, defaultSubgroup, firstWeekDate }
+  config        Json // telegram: { peer } | ics: { urlEncrypted, host } | расписание: { url, defaultSubgroup, firstWeekDate }
   enabled       Boolean        @default(true)
   lastCheckedAt DateTime?
   lastCursor    String? // TG: id последнего сообщения; ICS и расписание: хэш содержимого
@@ -93,6 +93,15 @@ model Source {
   rawMessages   RawMessage[]
   tasks         Task[]
   classes       ClassSession[]
+}
+
+// Секреты приложения, которые не относятся к одному источнику. Пока один: сессия Telegram
+// (name = "telegram") — это полный доступ к аккаунту, поэтому value зашифрован
+// (AES-256-GCM, ключ ENCRYPTION_KEY) и лежит в базе, а не в .env рядом с ключом.
+model Credential {
+  name      String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model RawMessage {

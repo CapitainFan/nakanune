@@ -137,6 +137,19 @@ export function splitClauses(text: string): string[] {
   return groups.map((group) => group.text);
 }
 
+/**
+ * Префильтр для чатов (раздел 11.1 ТЗ): есть ли в сообщении хоть что-то похожее на задание —
+ * глагол («решить», «сверстать»), маркер («дз», «№», «лаба», «самостоялка») или пункт списка.
+ * Такие сообщения (и вопросы перед ними) уходят в ИИ, болтовня — нет.
+ */
+export function hasTaskSignal(text: string): boolean {
+  return splitSegments(text).some(
+    (segment) =>
+      !isQuestion(segment.text) &&
+      (segment.listItem || VERB.test(segment.text) || MARKER.test(segment.text)),
+  );
+}
+
 /** Вопрос не бывает заданием — он задаёт контекст ответу. */
 export function isQuestion(text: string): boolean {
   const trimmed = text.trim();
