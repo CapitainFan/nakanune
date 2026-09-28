@@ -91,6 +91,18 @@ describe('extractDrafts через Gemini', () => {
     expect(drafts[0]!.title).toHaveLength(120);
   });
 
+  it('задание по лекционному предмету с отдельной практикой — на практику', async () => {
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({ items: [aiItem({ subjectName: 'Алгебра и теория чисел' })] }),
+    });
+    const { drafts } = await extractDrafts(
+      [message],
+      { ...context, practiceOf: { alg: 'ma' } },
+      gemini,
+    );
+    expect(drafts[0]!.subjectId).toBe('ma');
+  });
+
   it('неизвестный предмет — «Без предмета», а не первый попавшийся (баг №6)', async () => {
     generateContent.mockResolvedValue({
       text: JSON.stringify({ items: [aiItem({ subjectName: 'Физика' })] }),

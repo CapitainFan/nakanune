@@ -16,7 +16,7 @@ describe('buildSubjectMatcher', () => {
   });
 
   it('основа слова — не само слово: «плюс» — не «плюсы»', () => {
-    expect(subjectOf('дз по плюсам')).toBe('mp');
+    expect(subjectOf('дз по плюсам')).toBe('lab');
     expect(subjectOf('плюс ещё задача')).toBeNull();
   });
 

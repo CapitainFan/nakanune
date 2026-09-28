@@ -46,12 +46,20 @@ export function listUpcomingClasses(
 export function buildSystemInstruction(context: {
   now: Date;
   subjects: SubjectRef[];
+  /** Предмет → его практика (МП → Практикум по программированию). */
+  practiceOf?: Record<string, string>;
   upcomingClasses: string[];
 }): string {
   const now = format(context.now, "yyyy-MM-dd'T'HH:mmXXX, EEEE", { locale: ru, in: inMinsk });
+  const names = new Map(context.subjects.map((subject) => [subject.id, subject.name]));
   const subjects = context.subjects.map((subject) => {
     const aliases = [subject.shortCode, ...subject.aliases].filter(Boolean);
-    return `  - ${subject.name}${aliases.length > 0 ? ` (ещё называют: ${aliases.join(', ')})` : ''}`;
+    const practice = names.get(context.practiceOf?.[subject.id] ?? '');
+    return `  - ${subject.name}${aliases.length > 0 ? ` (ещё называют: ${aliases.join(', ')})` : ''}${
+      practice
+        ? ` — это лекции с теорией; его практика — «${practice}», задания по нему записывай на «${practice}»`
+        : ''
+    }`;
   });
 
   return [

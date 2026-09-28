@@ -119,6 +119,22 @@ https://developer.mozilla.org/ru/docs/Web/CSS
     expect(third.notice).toContain('уже разбирались');
   });
 
+  it('задание по МП (лекции) записывает на Практикум — его практику', async () => {
+    const practice = await prisma.subject.create({
+      data: { name: 'Практикум по программированию', aliases: ['плюсы'] },
+    });
+    await prisma.subject.create({
+      data: { name: 'Методы программирования', shortCode: 'МП', practiceSubjectId: practice.id },
+    });
+
+    const res = await request(app)
+      .post('/api/extract')
+      .send({ text: 'МП: решить задачу на треугольник\nПо плюсам прочитать 3 главы Шилдта' })
+      .expect(201);
+    const body = ExtractResultSchema.parse(res.body);
+    expect(body.report.inserted.map((task) => task.subjectId)).toEqual([practice.id, practice.id]);
+  });
+
   it('пустой текст — 400', async () => {
     await request(app).post('/api/extract').send({ text: '   ' }).expect(400);
   });

@@ -185,22 +185,22 @@ pr-cy.ru
         due: null,
         priority: 'low',
       },
-      // Предмет — из вопроса «Что по проге», срок — свой: из диапазона берётся «до 6 октября»
+      // Предмет — из вопроса «Что по проге» (прога — Практикум), срок — свой: из диапазона берётся «до 6 октября»
       {
         title: '5 заданий тех из классной работы',
-        subjectId: 'mp',
+        subjectId: 'lab',
         due: day('2026-10-06'),
         priority: 'medium',
       },
       {
         title: 'Всякие доп задачи есть если хочешь',
-        subjectId: 'mp',
+        subjectId: 'lab',
         due: day('2026-10-06'),
         priority: 'low',
       },
       {
         title: 'Еще какое-то есть там срок посмотри',
-        subjectId: 'mp',
+        subjectId: 'lab',
         due: day('2026-09-29'),
         priority: 'medium',
       },
@@ -268,7 +268,7 @@ https://javarush.com/quests/lectures/ru.javarush.web.core.lecture.level03.lectur
         'Сделать индивидуальное задание на курсе',
         'Сделать задачу на треугольник, файл с домашним заданием',
         'Классная работа1 файл сделать задачи и спп файлы те сохранить',
-      ].map((title) => ({ title, subjectId: 'mp', due: NEXT_CLASS })),
+      ].map((title) => ({ title, subjectId: 'lab', due: NEXT_CLASS })),
     );
   });
 

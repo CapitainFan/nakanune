@@ -12,17 +12,24 @@ datasource db {
 }
 
 model Subject {
-  id        String         @id @default(cuid())
-  name      String         @unique
-  shortCode String? // short_code из StudyPlan
-  color     String         @default("#3b82f6") // hex вместо CSS-переменных StudyPlan
-  aliases   String[]       @default([]) // «матан», «мат. анализ», «МА»
+  id                String         @id @default(cuid())
+  name              String         @unique
+  shortCode         String? // short_code из StudyPlan
+  color             String         @default("#3b82f6") // hex вместо CSS-переменных StudyPlan
+  aliases           String[]       @default([]) // «матан», «мат. анализ», «МА»
   // Моя подгруппа по этому предмету (на английском своя разбивка). null — берётся
   // defaultSubgroup из настроек расписания.
-  subgroup  String?
-  tasks     Task[]
-  classes   ClassSession[]
-  createdAt DateTime       @default(now())
+  subgroup          String?
+  // Практика предмета, записанная в расписании отдельным предметом: у «Методов
+  // программирования» (лекции с теорией) это «Практикум по программированию». Задания
+  // по предмету записываются на практику, срок — ближайшая практика. Расписание
+  // при этом показывается как на сайте.
+  practiceSubjectId String?
+  practiceSubject   Subject?       @relation("SubjectPractice", fields: [practiceSubjectId], references: [id], onDelete: SetNull)
+  lectureSubjects   Subject[]      @relation("SubjectPractice")
+  tasks             Task[]
+  classes           ClassSession[]
+  createdAt         DateTime       @default(now())
 }
 
 // В StudyPlan было 'Not Started' | 'Done'.

@@ -32,6 +32,8 @@ export type Draft = {
 export type ExtractContext = {
   subjects: SubjectRef[];
   schedule: ScheduleContext | null;
+  /** Предмет → его практика: задания по МП записываются на Практикум. */
+  practiceOf?: Record<string, string>;
   now: Date;
   /** Ручная вставка: ничего не нашлось — весь текст одним черновиком. Для чатов — нет. */
   wholeTextFallback?: boolean;
@@ -73,6 +75,7 @@ export async function extractDrafts(
     const systemInstruction = buildSystemInstruction({
       now: context.now,
       subjects: context.subjects,
+      practiceOf: context.practiceOf ?? {},
       upcomingClasses: listUpcomingClasses(context.schedule, context.subjects, earliest),
     });
     const failures: string[] = [];
@@ -129,9 +132,8 @@ function fromAiItems(
     if (!item.isHomework || !item.title || !messageSentAt) return [];
     // В StudyPlan пустое имя предмета совпадало с первым же предметом, а «не нашёлся» —
     // превращался в subjects[3] (баг №6). Здесь не нашёлся — значит «Без предмета»
-    const subjectId = item.subjectName
-      ? findSubjectByName(item.subjectName, context.subjects)
-      : null;
+    const found = item.subjectName ? findSubjectByName(item.subjectName, context.subjects) : null;
+    const subjectId = found && homeworkSubject(found, context);
     let dueAt = parseAiDate(item.dueAt);
     // Срок, который не удалось прочитать, помечаем как догадку
     let dueAtIsGuess = item.dueAtIsGuess || (item.dueAt !== null && dueAt === null);
@@ -163,6 +165,14 @@ function fromAiItems(
   });
 }
 
+/**
+ * Предмет, на который записать задание: у лекционного предмета с отдельной практикой
+ * (МП → Практикум по программированию) — практика, если прямо не сказано «к лекции».
+ */
+function homeworkSubject(subjectId: string, context: ExtractContext, atLecture = false): string {
+  return (!atLecture && context.practiceOf?.[subjectId]) || subjectId;
+}
+
 /** 23:59 или 00:00 по Минску — модель назвала день, а не время. */
 function isEndOfDay(date: Date): boolean {
   const time = format(date, 'HH:mm', { in: inMinsk });
@@ -186,11 +196,14 @@ function fromHeuristic(messages: MessageForAi[], context: ExtractContext): Draft
     subjects: context.subjects,
     wholeTextFallback: context.wholeTextFallback,
   }).map(({ message, task }) => {
-    const due = resolveDue(task.due, task.subjectId, message.sentAt, context.schedule);
+    // «к лекции» по МП — остаётся лекцией, остальное — на практику
+    const subjectId =
+      task.subjectId && homeworkSubject(task.subjectId, context, task.due?.atLecture);
+    const due = resolveDue(task.due, subjectId, message.sentAt, context.schedule);
     return {
       messageId: message.id,
       title: task.title,
-      subjectId: task.subjectId,
+      subjectId,
       dueAt: due.dueAt?.toISOString() ?? null,
       dueAtIsGuess: due.isGuess,
       summary: null,
