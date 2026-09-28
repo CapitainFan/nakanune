@@ -12,6 +12,7 @@
     "dev:server": "pnpm --filter @nakanune/server dev",
     "build": "pnpm --filter @nakanune/web build",
     "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
     "lint": "eslint . && pnpm --filter @nakanune/web lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
