@@ -24,14 +24,28 @@ describe('resolveDue', () => {
     expect(iso(resolveDue(hint, 'ma', MONDAY_NOON, SCHEDULE))).toBe('2026-10-02T15:00:00.000Z');
   });
 
-  it('«к следующей паре» — ближайшая пара после отправки сообщения', () => {
+  it('«к следующей паре» — ближайшая практика после отправки сообщения, не лекция', () => {
     const next = { type: 'next-class' } as const;
-    // В понедельник в 12:00 следующая пара матана — сегодня в 13:00
-    expect(iso(resolveDue(next, 'ma', MONDAY_NOON, SCHEDULE))).toBe('2026-09-28T10:00:00.000Z');
-    // В 14:00 она уже прошла — следующая в среду в 11:15
-    const afterClass = new Date('2026-09-28T11:00:00Z');
-    expect(iso(resolveDue(next, 'ma', afterClass, SCHEDULE))).toBe('2026-09-30T08:15:00.000Z');
+    // В понедельник в 12:00 ближайшая пара матана — лекция в 13:00, а практика — в среду в 11:15
+    expect(iso(resolveDue(next, 'ma', MONDAY_NOON, SCHEDULE))).toBe('2026-09-30T08:15:00.000Z');
+    // Среда, 12:00: практика уже прошла — следующая в пятницу в 08:15
+    const wednesday = new Date('2026-09-30T09:00:00Z');
+    expect(iso(resolveDue(next, 'ma', wednesday, SCHEDULE))).toBe('2026-10-02T05:15:00.000Z');
     // Предмет неизвестен — срок неизвестен
     expect(resolveDue(next, null, MONDAY_NOON, SCHEDULE)).toEqual({ dueAt: null, isGuess: false });
+  });
+
+  it('«к следующей лекции» — лекция', () => {
+    const lecture = { type: 'next-class', atLecture: true } as const;
+    expect(iso(resolveDue(lecture, 'ma', MONDAY_NOON, SCHEDULE))).toBe('2026-09-28T10:00:00.000Z');
+  });
+
+  it('у предмета только лекции — любая его пара', () => {
+    const lecturesOnly = {
+      ...SCHEDULE,
+      classes: SCHEDULE.classes.filter((lesson) => lesson.kind === 'LECTURE'),
+    };
+    const next = { type: 'next-class' } as const;
+    expect(iso(resolveDue(next, 'ma', MONDAY_NOON, lecturesOnly))).toBe('2026-09-28T10:00:00.000Z');
   });
 });

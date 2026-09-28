@@ -20,11 +20,13 @@ export function fromMinskDateKey(key: string): Date {
   return fromMinskDateTime(key, '00:00');
 }
 
-/** `YYYY-MM-DD` и `HH:mm` по Минску → момент времени. */
+/** `YYYY-MM-DD` и `HH:mm` (или `HH:mm:ss`) по Минску → момент времени. */
 export function fromMinskDateTime(dateKey: string, time: string): Date {
   const [year, month, day] = dateKey.split('-').map(Number);
-  const [hours, minutes] = time.split(':').map(Number);
-  return new Date(new TZDate(year!, month! - 1, day!, hours!, minutes!, TIMEZONE).getTime());
+  const [hours, minutes, seconds = 0] = time.split(':').map(Number);
+  return new Date(
+    new TZDate(year!, month! - 1, day!, hours!, minutes!, seconds, TIMEZONE).getTime(),
+  );
 }
 
 /** Дата и время по Минску в виде `YYYY-MM-DD HH:mm` — для экспорта. */

@@ -30,6 +30,7 @@ export function InboxView() {
       <h1 className="sr-only">Входящие</h1>
       <PasteForm onResult={setLastResult} />
 
+      {lastResult && <ResultLine result={lastResult} />}
       {lastResult?.notice && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
           {lastResult.notice}
@@ -69,4 +70,20 @@ export function InboxView() {
       )}
     </div>
   );
+}
+
+/** Чем разобран текст и сколько сообщений было новыми: «ИИ (gemini-2.5-flash) · сообщений 6, уже разбирались 2». */
+function ResultLine({ result }: { result: ExtractResult }) {
+  const { total, skipped } = result.messages;
+  const parts = [
+    result.engine === 'gemini'
+      ? `Разобрал ИИ (${result.model})`
+      : result.engine === 'heuristic'
+        ? 'Разобрано без ИИ'
+        : null,
+    total > 1 ? `сообщений ${total}` : null,
+    skipped > 0 && skipped < total ? `уже разбирались ${skipped}` : null,
+  ].filter(Boolean);
+  if (parts.length === 0) return null;
+  return <p className="text-xs text-zinc-500">{parts.join(' · ')}</p>;
 }

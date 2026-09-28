@@ -18,7 +18,18 @@ const EnvSchema = z.object({
     .string()
     .optional()
     .transform((key) => key?.trim() || undefined),
-  GEMINI_MODEL: z.string().default('gemini-3.8-flash'),
+  // Модели по очереди: бесплатный тариф часто отвечает 503 «high demand» на новые модели,
+  // тогда пробуем следующую. Порядок — по тому, что стабильнее отвечало на разборе чатов.
+  GEMINI_MODELS: z
+    .string()
+    .default('gemini-2.5-flash,gemini-3.6-flash,gemini-3.8-flash,gemini-3.5-flash-lite')
+    .transform((list) =>
+      list
+        .split(',')
+        .map((model) => model.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.string()).min(1, 'Укажи хотя бы одну модель')),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

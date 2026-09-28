@@ -11,6 +11,7 @@ import {
   type TaskDto,
 } from '@nakanune/shared';
 import { useState } from 'react';
+import { Linkified } from '@/components/Linkified';
 import { TaskEditForm } from '@/components/tasks/TaskEditForm';
 import { badge, card, ghostButton, primaryButton } from '@/components/ui';
 import { formatDue } from '@/lib/format';
@@ -50,7 +51,11 @@ export function InboxCard({ task, subject, now }: Props) {
               ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
               : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
           }`}
-          title={task.dueAtIsGuess ? 'Срок примерный — проверь' : undefined}
+          title={
+            task.dueAtIsGuess
+              ? 'Срок примерный: в сообщении его не было — поставлен к следующей практике или взят из вопроса. Проверь'
+              : undefined
+          }
         >
           {task.dueAt
             ? `${task.dueAtIsGuess ? '≈ ' : ''}${formatDue(task.dueAt, now)}`
@@ -73,6 +78,9 @@ export function InboxCard({ task, subject, now }: Props) {
       <div>
         <h3 className="font-medium">{task.title}</h3>
         {task.summary && <p className="mt-1 text-sm text-zinc-500">{task.summary}</p>}
+        {task.description && (
+          <Linkified text={task.description} className="mt-1 text-sm text-zinc-500" />
+        )}
       </div>
 
       {task.origin && (

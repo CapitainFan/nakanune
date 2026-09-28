@@ -6,7 +6,8 @@ import { ExtractResponseSchema, inMinsk, type ExtractedItem } from '@nakanune/sh
 import { format } from 'date-fns';
 import { z } from 'zod';
 
-export type GeminiConfig = { apiKey: string; model: string };
+/** Ключ и модели по порядку: не ответила первая — пробуем следующую. */
+export type GeminiConfig = { apiKey: string; models: string[] };
 
 export type MessageForAi = { id: string; sentAt: Date; source: string; text: string };
 
@@ -19,13 +20,18 @@ const { $schema, ...responseJsonSchema } = z.toJSONSchema(ExtractResponseSchema,
 export async function extractWithGemini(
   messages: MessageForAi[],
   systemInstruction: string,
-  config: GeminiConfig,
+  apiKey: string,
+  model: string,
+  timeoutMs: number,
 ): Promise<ExtractedItem[]> {
-  const ai = new GoogleGenAI({ apiKey: config.apiKey });
+  // Повторы SDK (до 5 попыток с паузами до минуты) выключены: при 503 быстрее
+  // перейти к другой модели, чем ждать эту
+  const ai = new GoogleGenAI({ apiKey, httpOptions: { retryOptions: { attempts: 1 } } });
 
   const response = await ai.models.generateContent({
-    model: config.model,
-    // Сообщения — отдельно от инструкций и в виде данных (JSON), а не частью текста промпта
+    model,
+    // Сообщения — отдельно от инструкций и в виде данных (JSON), а не частью текста промпта.
+    // Имена авторов не отправляем: для разбора они не нужны
     contents: JSON.stringify(
       messages.map((message) => ({
         id: message.id,
@@ -39,7 +45,7 @@ export async function extractWithGemini(
       responseMimeType: 'application/json',
       responseJsonSchema,
       temperature: 0,
-      abortSignal: AbortSignal.timeout(30_000),
+      abortSignal: AbortSignal.timeout(timeoutMs),
     },
   });
 

@@ -9,20 +9,37 @@ const subjects: SubjectRef[] = [
 const schedule: ScheduleContext = {
   firstWeekDate: '2026-09-01',
   classes: [
-    { subjectId: 'ma', weekday: 5, weekParity: null, validFrom: null, startTime: '08:15' },
-    { subjectId: 'en', weekday: 1, weekParity: 2, validFrom: null, startTime: '14:30' },
+    {
+      subjectId: 'ma',
+      weekday: 5,
+      weekParity: null,
+      validFrom: null,
+      startTime: '08:15',
+      kind: 'LAB',
+    },
+    {
+      subjectId: 'ma',
+      weekday: 5,
+      weekParity: null,
+      validFrom: null,
+      startTime: '09:45',
+      kind: 'LECTURE',
+    },
+    { subjectId: 'en', weekday: 1, weekParity: 2, validFrom: null, startTime: '14:30', kind: null },
   ],
 };
 // Понедельник, 28 сентября 2026, 12:00 по Минску
 const NOW = new Date('2026-09-28T09:00:00Z');
 
 describe('listUpcomingClasses', () => {
-  it('пары на две недели вперёд с учётом чётности недели', () => {
+  it('пары на две недели вперёд с учётом чётности недели; «лаб.» для модели — практика', () => {
     expect(listUpcomingClasses(schedule, subjects, NOW)).toEqual([
-      '2026-10-02 (пт) 08:15 Математический анализ',
+      '2026-10-02 (пт) 08:15 Математический анализ, практика',
+      '2026-10-02 (пт) 09:45 Математический анализ, лекция',
       // английский — только по второй неделе: 28.09 первая, 05.10 вторая
       '2026-10-05 (пн) 14:30 Английский язык',
-      '2026-10-09 (пт) 08:15 Математический анализ',
+      '2026-10-09 (пт) 08:15 Математический анализ, практика',
+      '2026-10-09 (пт) 09:45 Математический анализ, лекция',
     ]);
   });
 });
@@ -45,7 +62,8 @@ describe('buildSystemInstruction', () => {
 
   it('перечисляет предметы с алиасами и пары', () => {
     expect(instruction).toContain('Математический анализ (ещё называют: МА, матан)');
-    expect(instruction).toContain('2026-10-02 (пт) 08:15 Математический анализ');
+    expect(instruction).toContain('2026-10-02 (пт) 08:15 Математический анализ, практика');
     expect(instruction).toContain('Не выдумывай даты');
+    expect(instruction).toContain('Домашку сдают на практике');
   });
 });

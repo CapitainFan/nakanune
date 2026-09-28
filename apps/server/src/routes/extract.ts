@@ -1,13 +1,10 @@
-import { randomUUID } from 'node:crypto';
-import { ExtractRequestSchema, type ExtractResult } from '@nakanune/shared';
+import { createHash, randomUUID } from 'node:crypto';
+import { ExtractRequestSchema, parseTelegramTranscript } from '@nakanune/shared';
 import { Router } from 'express';
-import { loadExtractionContext } from '../ai/context';
-import { extractDrafts } from '../ai/extract';
+import { ingestMessages, type IncomingMessage } from '../ai/ingest';
 import { prisma } from '../db';
-import { toTaskDto } from '../dto';
 import { env } from '../env';
 import { parseOr400 } from '../lib/http';
-import { insertTasks } from '../tasks/insert';
 
 export const extractRouter = Router();
 
@@ -15,48 +12,39 @@ export const extractRouter = Router();
 const MANUAL_SOURCE_ID = 'manual';
 
 /**
- * Разбор вставленного текста (сообщение из чата, письмо). Найденные задания сохраняются
- * во «Входящие» — всё из ручной вставки проходит проверку, как экран извлечения в StudyPlan.
+ * Разбор вставленного текста: сообщение, письмо или целая переписка из Telegram Desktop.
+ * Найденные задания сохраняются во «Входящие» — всё из ручной вставки проходит проверку,
+ * как экран извлечения в StudyPlan.
  */
 extractRouter.post('/', async (req, res) => {
   const { text } = parseOr400(ExtractRequestSchema, req.body);
   const now = new Date();
 
-  const source = await prisma.source.upsert({
+  await prisma.source.upsert({
     where: { id: MANUAL_SOURCE_ID },
     create: { id: MANUAL_SOURCE_ID, type: 'MANUAL', title: 'Вставленный текст', config: {} },
     update: {},
   });
-  // Текст сохраняем как сырое сообщение: карточка во «Входящих» покажет, откуда задание
-  const message = await prisma.rawMessage.create({
-    data: { sourceId: source.id, externalId: randomUUID(), text, sentAt: now },
+
+  const chat = parseTelegramTranscript(text);
+  // У сообщения из переписки id — хэш времени и текста: вставишь ту же переписку снова
+  // (или кусок, который пересекается с прошлым) — старые сообщения не разберутся дважды.
+  // Имя автора не сохраняем и никуда не отправляем
+  const messages: IncomingMessage[] = chat
+    ? chat.map((message) => ({
+        externalId: `chat:${createHash('sha1').update(`${message.sentAt.toISOString()}\n${message.text}`).digest('hex')}`,
+        sentAt: message.sentAt,
+        text: message.text,
+      }))
+    : [{ externalId: randomUUID(), sentAt: now, text }];
+
+  const result = await ingestMessages({
+    sourceId: MANUAL_SOURCE_ID,
+    sourceLabel: chat ? 'переписка из учебного чата' : 'вставленный текст',
+    messages,
+    gemini: env.GEMINI_API_KEY ? { apiKey: env.GEMINI_API_KEY, models: env.GEMINI_MODELS } : null,
+    now,
+    wholeTextFallback: !chat,
   });
-
-  const gemini = env.GEMINI_API_KEY
-    ? { apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL }
-    : null;
-  const { engine, notice, drafts } = await extractDrafts(
-    [{ id: message.id, sentAt: now, source: 'вставленный текст', text }],
-    { ...(await loadExtractionContext()), now, wholeTextFallback: true },
-    gemini,
-  );
-
-  const result = await insertTasks(
-    drafts.map(({ messageId, ...draft }, index) => ({
-      index,
-      task: { ...draft, status: 'INBOX', sourceId: source.id, rawMessageId: message.id },
-    })),
-  );
-  await prisma.rawMessage.update({ where: { id: message.id }, data: { processed: true } });
-
-  const body: ExtractResult = {
-    engine,
-    notice,
-    report: {
-      inserted: result.inserted.map(toTaskDto),
-      duplicates: result.duplicates,
-      errors: result.errors,
-    },
-  };
-  res.status(result.inserted.length > 0 ? 201 : 200).json(body);
+  res.status(result.report.inserted.length > 0 ? 201 : 200).json(result);
 });

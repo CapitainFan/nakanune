@@ -189,6 +189,8 @@ export const useTasksStore = create<TasksState>()((set, get) => {
 
         if (inserted.length > 0) {
           toast.success(`Найдено заданий: ${inserted.length}`, { description: 'Проверь их ниже' });
+        } else if (result.engine === null) {
+          toast.info('Эти сообщения уже разбирались');
         } else if (duplicates.length > 0) {
           toast.info('Эти задания уже есть');
         } else {

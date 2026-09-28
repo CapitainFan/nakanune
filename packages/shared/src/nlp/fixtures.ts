@@ -25,7 +25,7 @@ export const SUBJECTS: SubjectRef[] = [
     id: 'mp',
     name: 'Методы программирования',
     shortCode: 'МП',
-    aliases: ['методы прог', 'прога', 'МП'],
+    aliases: ['методы прог', 'прога', 'плюсы', 'МП'],
   },
   {
     id: 'lab',
@@ -41,13 +41,44 @@ export const SUBJECTS: SubjectRef[] = [
   },
 ];
 
-/** Пары матана: пн 13:00, ср 11:15, пт 08:15 и 09:45 — каждую неделю. */
+/**
+ * Пары матана, как на сайте: лекции пн 13:00 и пт 09:45, практики («лаб.») ср 11:15 и
+ * пт 08:15 — каждую неделю.
+ */
 export const SCHEDULE: ScheduleContext = {
   firstWeekDate: '2026-09-01',
   classes: [
-    { subjectId: 'ma', weekday: 1, weekParity: null, validFrom: null, startTime: '13:00' },
-    { subjectId: 'ma', weekday: 3, weekParity: null, validFrom: null, startTime: '11:15' },
-    { subjectId: 'ma', weekday: 5, weekParity: null, validFrom: null, startTime: '08:15' },
-    { subjectId: 'ma', weekday: 5, weekParity: null, validFrom: null, startTime: '09:45' },
+    {
+      subjectId: 'ma',
+      weekday: 1,
+      weekParity: null,
+      validFrom: null,
+      startTime: '13:00',
+      kind: 'LECTURE',
+    },
+    {
+      subjectId: 'ma',
+      weekday: 3,
+      weekParity: null,
+      validFrom: null,
+      startTime: '11:15',
+      kind: 'LAB',
+    },
+    {
+      subjectId: 'ma',
+      weekday: 5,
+      weekParity: null,
+      validFrom: null,
+      startTime: '08:15',
+      kind: 'LAB',
+    },
+    {
+      subjectId: 'ma',
+      weekday: 5,
+      weekParity: null,
+      validFrom: null,
+      startTime: '09:45',
+      kind: 'LECTURE',
+    },
   ],
 };

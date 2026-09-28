@@ -16,7 +16,7 @@ const subjects = [
 // Понедельник, 28 сентября 2026, 12:00 по Минску
 const now = new Date('2026-09-28T09:00:00Z');
 const context = { subjects, schedule: null, now };
-const gemini = { apiKey: 'test-key', model: 'gemini-test' };
+const gemini = { apiKey: 'test-key', models: ['gemini-test'] };
 const message = { id: 'm1', sentAt: now, source: 'чат группы', text: 'Матан: к пятнице №1234 #кр' };
 
 const aiItem = (fields: Record<string, unknown> = {}) => ({
@@ -56,6 +56,7 @@ describe('extractDrafts через Gemini', () => {
 
     expect(outcome).toEqual({
       engine: 'gemini',
+      model: 'gemini-test',
       notice: null,
       drafts: [
         {
@@ -98,11 +99,64 @@ describe('extractDrafts через Gemini', () => {
     expect(drafts[0]!.subjectId).toBeNull();
   });
 
-  it('если Gemini упал или ответ не по схеме — разбирает эвристикой и объясняет почему', async () => {
-    generateContent.mockRejectedValue(new Error('429 Too Many Requests'));
+  it('перегруженная модель — пробует следующую', async () => {
+    generateContent
+      .mockRejectedValueOnce(new Error('{"error":{"code":503,"message":"high demand"}}'))
+      .mockResolvedValueOnce({ text: JSON.stringify({ items: [aiItem()] }) });
+
+    const outcome = await extractDrafts([message], context, {
+      apiKey: 'test-key',
+      models: ['gemini-new', 'gemini-old'],
+    });
+    expect(generateContent.mock.calls.map(([request]) => request.model)).toEqual([
+      'gemini-new',
+      'gemini-old',
+    ]);
+    expect(outcome).toMatchObject({ engine: 'gemini', model: 'gemini-old', notice: null });
+  });
+
+  it('срок не назван — к следующей практике по предмету, как догадка', async () => {
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({ items: [aiItem({ dueAt: null })] }),
+    });
+    const schedule = {
+      firstWeekDate: '2026-09-01',
+      classes: [
+        // Лекция в понедельник 13:00 — не она, а практика в среду 11:15
+        {
+          subjectId: 'ma',
+          weekday: 1,
+          weekParity: null,
+          validFrom: null,
+          startTime: '13:00',
+          kind: 'LECTURE' as const,
+        },
+        {
+          subjectId: 'ma',
+          weekday: 3,
+          weekParity: null,
+          validFrom: null,
+          startTime: '11:15',
+          kind: 'LAB' as const,
+        },
+      ],
+    };
+    const { drafts } = await extractDrafts([message], { ...context, schedule }, gemini);
+    expect(drafts[0]).toMatchObject({ dueAt: '2026-09-30T08:15:00.000Z', dueAtIsGuess: true });
+
+    // Модель назвала только день (23:59) — сдвигаем на начало практики в этот день
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({ items: [aiItem({ dueAt: '2026-09-30T23:59:00+03:00' })] }),
+    });
+    const { drafts: dayOnly } = await extractDrafts([message], { ...context, schedule }, gemini);
+    expect(dayOnly[0]).toMatchObject({ dueAt: '2026-09-30T08:15:00.000Z', dueAtIsGuess: false });
+  });
+
+  it('если все модели упали или ответ не по схеме — разбирает эвристикой и объясняет почему', async () => {
+    generateContent.mockRejectedValue(new Error('{"error":{"code":429,"message":"quota"}}'));
     const failed = await extractDrafts([message], context, gemini);
     expect(failed.engine).toBe('heuristic');
-    expect(failed.notice).toContain('429 Too Many Requests');
+    expect(failed.notice).toContain('gemini-test: исчерпан лимит (429)');
     expect(failed.drafts[0]).toMatchObject({ subjectId: 'ma', labels: ['кр'] });
 
     generateContent.mockResolvedValue({ text: '{"items": [{"title": 1}]}' });

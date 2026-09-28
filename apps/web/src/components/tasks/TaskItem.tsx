@@ -9,6 +9,7 @@ import { badge, ghostButton } from '@/components/ui';
 import { formatDue } from '@/lib/format';
 import { useTasksStore } from '@/store/tasks';
 import { TaskEditForm } from './TaskEditForm';
+import { Linkified } from '@/components/Linkified';
 
 type Props = {
   task: TaskDto;
@@ -98,6 +99,9 @@ export function TaskItem({ task, subject, now, onLabelClick }: Props) {
         </div>
 
         {task.summary && <p className="mt-1.5 text-sm text-zinc-500">{task.summary}</p>}
+        {task.description && (
+          <Linkified text={task.description} className="mt-1.5 text-sm text-zinc-500" />
+        )}
         {task.notes && <p className="mt-1.5 text-sm text-zinc-500">{task.notes}</p>}
       </div>
 

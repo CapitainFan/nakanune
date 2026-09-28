@@ -15,6 +15,11 @@ describe('buildSubjectMatcher', () => {
     expect(subjectOf('лаба по методам программирования')).toBe('mp');
   });
 
+  it('основа слова — не само слово: «плюс» — не «плюсы»', () => {
+    expect(subjectOf('дз по плюсам')).toBe('mp');
+    expect(subjectOf('плюс ещё задача')).toBeNull();
+  });
+
   it('выбирает самое длинное совпадение', () => {
     // «прога» совпадает и с «программированию», но полное название практикума длиннее
     expect(subjectOf('Практикум по программированию: задача 3')).toBe('lab');
@@ -23,6 +28,7 @@ describe('buildSubjectMatcher', () => {
   it('сокращения — только целым словом, с заглавными — с учётом регистра', () => {
     expect(subjectOf('МА: №1250')).toBe('ma');
     expect(subjectOf('англ: упр. 5')).toBe('en');
+    expect(subjectOf('на англе диктант')).toBe('en');
     expect(subjectOf('ма, я задание не понял')).toBeNull();
     expect(subjectOf('манная каша')).toBeNull();
   });

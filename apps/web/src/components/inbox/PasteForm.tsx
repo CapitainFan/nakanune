@@ -36,7 +36,7 @@ export function PasteForm({ onResult }: { onResult: (result: ExtractResult) => v
         onKeyDown={onKeyDown}
         rows={4}
         placeholder={
-          'Вставь сообщение из чата группы, например:\nМатан: к пятнице №1234–1240 из Демидовича #кр'
+          'Вставь сообщение из чата группы, например:\nМатан: к пятнице №1234–1240 из Демидовича #кр\n\nИли выдели несколько сообщений в Telegram Desktop и скопируй — переписка разберётся целиком'
         }
         aria-label="Текст с заданиями"
         className={`${field} w-full resize-y`}

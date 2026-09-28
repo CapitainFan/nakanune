@@ -7,9 +7,10 @@ import { inMinsk, toMinskDateKey } from '../time';
 import { WORD_END, WORD_START } from './regex';
 
 /** Что удалось понять о сроке. Точное время подставит resolveDue (с учётом расписания). */
+// atLecture — в тексте прямо сказано «к лекции»; иначе срок — практика (см. resolveDue)
 export type DueHint =
-  | { type: 'date'; date: string; time: string | null; isGuess: boolean } // date — YYYY-MM-DD по Минску
-  | { type: 'next-class' }; // «к следующей паре» — срок знает только расписание
+  | { type: 'date'; date: string; time: string | null; isGuess: boolean; atLecture?: boolean } // date — YYYY-MM-DD по Минску
+  | { type: 'next-class'; isGuess?: boolean; atLecture?: boolean }; // «к следующей паре» — срок знает только расписание
 
 export type DateMatch = {
   hint: DueHint;
@@ -18,11 +19,12 @@ export type DateMatch = {
 };
 
 const PREP = '(?:(?:до|к|ко|в|во|на)\\s+)?';
-const NEXT = '(?:следующ\\p{L}*|след\\.)';
+// «следующей», «след.», «след» — в чатах пишут и так: «на след паре»
+const NEXT = '(?:следующ\\p{L}*|след(?:\\.|(?!\\p{L})))';
 const CLASS_WORD = '(?:\\s+(?:пар|заняти|семинар|практик|лекци|лаб)\\p{L}*)?';
 
 const NEXT_CLASS = new RegExp(
-  `${WORD_START}(?:к|на|до)\\s+${NEXT}\\s*(?:пар|заняти|семинар|практик|лекци|лаб)\\p{L}*`,
+  `${WORD_START}(?:к|на|до)\\s+${NEXT}\\s*(пар|заняти|семинар|практик|лекци|лаб)\\p{L}*`,
   'iu',
 );
 const DAY_AFTER_TOMORROW = new RegExp(`${WORD_START}${PREP}послезавтра${WORD_END}`, 'iu');
@@ -38,9 +40,15 @@ const IN_N = new RegExp(
   `${WORD_START}через\\s+(?:(\\d+|один|одну|два|две|три|четыре|пять|шесть|семь|десять)\\s+)?(дн\\p{L}*|день|недел\\p{L}*)`,
   'iu',
 );
-// «5 октября», «5-го окт.», «5 октября 2026». «март» стоит раньше «ма[йя]», иначе «марта» станет маем
+// «5 октября», «5-го окт.», «5 октября 2026», в чатах и слитно: «до 29сент».
+// «март» стоит раньше «ма[йя]», иначе «марта» станет маем
 const DAY_MONTH = new RegExp(
-  `${WORD_START}${PREP}(\\d{1,2})(?:-?го)?\\s+(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр|янв|фев|мар|апр|авг|сен|окт|ноя|дек)\\p{L}*\\.?(?:\\s+(\\d{4}))?`,
+  `${WORD_START}${PREP}(\\d{1,2})(?:-?го)?\\s*(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр|янв|фев|мар|апр|авг|сен|окт|ноя|дек)\\p{L}*\\.?(?:\\s+(\\d{4}))?`,
+  'iu',
+);
+// «на 29.09-06.10», «с 29.09 по 06.10» — срок по последней дате
+const NUMERIC_RANGE = new RegExp(
+  `${WORD_START}(?:(?:с|на)\\s+)?(?<![\\d.,])(\\d{1,2})\\.(\\d{1,2})\\s*(?:[-–—]|по)\\s*(\\d{1,2})\\.(\\d{1,2})(?![.\\d])`,
   'iu',
 );
 // «5.10», «05.10.26» — не часть длинного числа (1.2.3) и не дробь
@@ -84,7 +92,8 @@ const NUMBER_WORDS: Record<string, number> = {
   семь: 7,
   десять: 10,
 };
-const MONTH_BY_PREFIX: Record<string, number> = {
+/** Месяц по первым трём буквам: «окт», «октября», «окт.» → 9. Нужен и для заголовков Telegram. */
+export const MONTH_BY_PREFIX: Record<string, number> = {
   янв: 0,
   фев: 1,
   мар: 2,
@@ -132,7 +141,10 @@ export function extractDate(text: string, sentAt: Date): DateMatch | null {
   });
 
   let match = NEXT_CLASS.exec(text);
-  if (match) return { hint: { type: 'next-class' }, phrases: [match[0]] };
+  if (match) {
+    const atLecture = match[1]!.toLowerCase() === 'лекци';
+    return { hint: { type: 'next-class', ...(atLecture && { atLecture }) }, phrases: [match[0]] };
+  }
 
   if ((match = DAY_AFTER_TOMORROW.exec(text))) return found(match, dayAfter(2));
   if ((match = TOMORROW.exec(text))) return found(match, dayAfter(1));
@@ -151,9 +163,16 @@ export function extractDate(text: string, sentAt: Date): DateMatch | null {
     if (date) return found(match, date);
   }
 
+  const isExerciseNumber = (index: number) =>
+    EXERCISE_BEFORE.test(text.slice(Math.max(0, index - 12), index));
+
+  if ((match = NUMERIC_RANGE.exec(text)) && !isExerciseNumber(match.index)) {
+    const date = resolveYear(Number(match[3]), Number(match[4]) - 1, undefined, sentAt);
+    if (date) return found(match, date);
+  }
+
   for (const numeric of text.matchAll(NUMERIC)) {
-    const before = text.slice(Math.max(0, numeric.index - 12), numeric.index);
-    if (EXERCISE_BEFORE.test(before)) continue;
+    if (isExerciseNumber(numeric.index)) continue;
     const date = resolveYear(Number(numeric[1]), Number(numeric[2]) - 1, numeric[3], sentAt);
     if (date) return found(numeric, date);
   }

@@ -30,16 +30,24 @@ export const ExtractResponseSchema = z.object({ items: z.array(ExtractedItemSche
 
 export type ExtractedItem = z.output<typeof ExtractedItemSchema>;
 
-/** Тело POST /api/extract: вставленный текст — сообщение из чата, письмо, фото доски словами. */
+/**
+ * Тело POST /api/extract: вставленный текст — сообщение, письмо или переписка, скопированная
+ * из Telegram Desktop (тогда она делится на сообщения по заголовкам «Имя, [дата]:»).
+ */
 export const ExtractRequestSchema = z.object({
   text: z.string().trim().min(1, 'Вставь текст').max(20_000),
 });
 
 /** Ответ POST /api/extract. Найденные задания сохранены во «Входящие» (статус INBOX). */
 export const ExtractResultSchema = z.object({
-  engine: z.enum(['gemini', 'heuristic']),
+  /** null — разбирать было нечего: все сообщения вставки уже разбирались. */
+  engine: z.enum(['gemini', 'heuristic']).nullable(),
+  /** Какая модель Gemini ответила (они пробуются по очереди). */
+  model: z.string().nullable(),
   /** Почему не ИИ, если разбирала эвристика: нет ключа, Gemini ответил ошибкой… */
   notice: z.string().nullable(),
+  /** Сколько сообщений во вставке и сколько из них уже разбирались раньше. */
+  messages: z.object({ total: z.number().int(), skipped: z.number().int() }),
   report: CreateTasksReportSchema,
 });
 

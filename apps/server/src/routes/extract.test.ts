@@ -41,6 +41,84 @@ describe('POST /api/extract', () => {
     expect(body.report.duplicates).toHaveLength(1);
   });
 
+  it('переписку из Telegram делит на сообщения: ссылки — в описание, имена не сохраняет', async () => {
+    const text = `Аня Смирнова, [25 сент. 2026\u202fг., 11:25:46]:
+ДЗ
+1)квентор сверстать по образцу из книги
+2) Квентор new, редизайн квентора
+ДЕДЛАЙН  09.10!
+
+
+https://developer.mozilla.org/ru/docs/Web/CSS
+
+
+Миша Орлов, [25 сент. 2026\u202fг., 11:30:00]:
+спасибо`;
+
+    const res = await request(app).post('/api/extract').send({ text }).expect(201);
+    const body = ExtractResultSchema.parse(res.body);
+
+    expect(body.messages).toEqual({ total: 2, skipped: 0 });
+    expect(body.report.inserted.map((task) => task.title)).toEqual([
+      'Квентор сверстать по образцу из книги',
+      'Квентор new, редизайн квентора',
+    ]);
+    for (const task of body.report.inserted) {
+      expect(task.description).toBe('https://developer.mozilla.org/ru/docs/Web/CSS');
+      // Срок 09.10 без предмета и расписания — 23:59 по Минску
+      expect(task.dueAt).toBe('2026-10-09T20:59:00.000Z');
+      expect(task.origin).toMatchObject({ sentAt: '2026-09-25T08:25:46.000Z' });
+      expect(task.origin?.text).toContain('ДЕДЛАЙН');
+    }
+
+    const messages = await prisma.rawMessage.findMany({ orderBy: { sentAt: 'asc' } });
+    expect(messages.map((message) => message.text)).toEqual([
+      expect.stringContaining('квентор'),
+      'спасибо',
+    ]);
+    expect(JSON.stringify(messages)).not.toContain('Смирнова');
+  });
+
+  it('ту же переписку второй раз не разбирает, а вопрос из прошлой вставки даёт предмет ответу', async () => {
+    const geometry = await prisma.subject.create({
+      data: { name: 'Геометрия', aliases: ['геома'] },
+    });
+    const question = `Лёша, [23 сент. 2026\u202fг., 14:01:11]:
+А че по геоме`;
+    const answer = `Аня Смирнова, [23 сент. 2026\u202fг., 14:02:05]:
+422-455 задачи`;
+
+    const first = ExtractResultSchema.parse(
+      (await request(app).post('/api/extract').send({ text: question }).expect(200)).body,
+    );
+    expect(first.report.inserted).toEqual([]);
+
+    // Во второй раз скопировали больше: старый вопрос и новый ответ
+    const second = ExtractResultSchema.parse(
+      (
+        await request(app)
+          .post('/api/extract')
+          .send({ text: `${question}\n\n${answer}` })
+          .expect(201)
+      ).body,
+    );
+    expect(second.messages).toEqual({ total: 2, skipped: 1 });
+    expect(second.report.inserted).toEqual([
+      expect.objectContaining({ title: '422-455 задачи', subjectId: geometry.id }),
+    ]);
+
+    const third = ExtractResultSchema.parse(
+      (
+        await request(app)
+          .post('/api/extract')
+          .send({ text: `${question}\n\n${answer}` })
+          .expect(200)
+      ).body,
+    );
+    expect(third).toMatchObject({ engine: null, messages: { total: 2, skipped: 2 } });
+    expect(third.notice).toContain('уже разбирались');
+  });
+
   it('пустой текст — 400', async () => {
     await request(app).post('/api/extract').send({ text: '   ' }).expect(400);
   });

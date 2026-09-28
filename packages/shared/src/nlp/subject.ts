@@ -14,7 +14,8 @@ const fold = (text: string) => text.toLowerCase().replaceAll('ё', 'е');
 
 /**
  * Основа слова, чтобы узнавать его в других падежах: «алгебра» → «алгеб» (алгебре),
- * «матан» → «мата» (матану). Слова до 4 букв сравниваются целиком.
+ * «матан» → «мата» (матану). Слова до 4 букв сравниваются целиком. После основы нужна
+ * хотя бы одна буква: алиас «плюсы» найдёт «по плюсам», но не «плюс ещё задача».
  */
 function stem(word: string): string {
   if (word.length >= 7) return word.slice(0, -2);
@@ -27,17 +28,18 @@ function aliasPattern(alias: string): Pattern | null {
 
   const [first] = words;
   if (words.length === 1 && first!.length <= 4) {
-    // Сокращения («МА», «ДУ», «англ») — только целым словом. Если в них есть заглавные —
-    // ещё и с учётом регистра: «МА» не должно находиться в «ма»
+    // Сокращения с заглавными («МА», «АиТЧ») — только целым словом и с учётом регистра:
+    // «МА» не должно находиться в «ма». Строчные («англ», «веб») склоняют: «на англе»,
+    // поэтому допускаем до двух букв окончания
     return /\p{Lu}/u.test(first!)
       ? { regex: wholeWord(escapeRegExp(first!), 'u'), onFolded: false }
-      : { regex: wholeWord(escapeRegExp(fold(first!)), 'iu'), onFolded: true };
+      : { regex: wholeWord(`${escapeRegExp(fold(first!))}\\p{L}{0,2}`, 'iu'), onFolded: true };
   }
 
   // Основы всех слов подряд: «мат. анализ» найдёт «мат анализу»
   const body = words
     .map((word) =>
-      word.length <= 4 ? escapeRegExp(fold(word)) : `${escapeRegExp(stem(fold(word)))}\\p{L}*`,
+      word.length <= 4 ? escapeRegExp(fold(word)) : `${escapeRegExp(stem(fold(word)))}\\p{L}+`,
     )
     .join('[^\\p{L}\\p{N}]+');
   return { regex: new RegExp(`${WORD_START}${body}`, 'iu'), onFolded: true };
