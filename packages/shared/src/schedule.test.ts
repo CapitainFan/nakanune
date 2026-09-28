@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { classesOn, weekParityOf } from './schedule';
+import { fromMinskDateKey as day } from './time';
 
 // Неделя с 1 сентября 2026 — первая (1 сентября — вторник, неделя 31.08–06.09)
 const FIRST_WEEK = '2026-09-01';
 
 describe('weekParityOf', () => {
   it('первая неделя — та, где 1 сентября, дальше через одну', () => {
-    expect(weekParityOf('2026-08-31', FIRST_WEEK)).toBe(1);
-    expect(weekParityOf('2026-09-06', FIRST_WEEK)).toBe(1);
-    expect(weekParityOf('2026-09-07', FIRST_WEEK)).toBe(2);
+    expect(weekParityOf(day('2026-08-31'), FIRST_WEEK)).toBe(1);
+    expect(weekParityOf(day('2026-09-06'), FIRST_WEEK)).toBe(1);
+    expect(weekParityOf(day('2026-09-07'), FIRST_WEEK)).toBe(2);
     // Подтверждено: 28.09–04.10 — первая неделя
-    expect(weekParityOf('2026-09-28', FIRST_WEEK)).toBe(1);
-    expect(weekParityOf('2026-10-04', FIRST_WEEK)).toBe(1);
-    expect(weekParityOf('2026-10-05', FIRST_WEEK)).toBe(2);
+    expect(weekParityOf(day('2026-09-28'), FIRST_WEEK)).toBe(1);
+    expect(weekParityOf(day('2026-10-04'), FIRST_WEEK)).toBe(1);
+    expect(weekParityOf(day('2026-10-05'), FIRST_WEEK)).toBe(2);
   });
 
   it('считает по Минску: 21:30 UTC воскресенья — это уже понедельник', () => {
@@ -48,19 +49,21 @@ describe('classesOn', () => {
 
   it('учитывает день недели, чётность и сортирует по времени', () => {
     // 01.10.2026 — четверг первой недели
-    expect(classesOn(classes, '2026-10-01', FIRST_WEEK).map((c) => c.id)).toEqual([
+    expect(classesOn(classes, day('2026-10-01'), FIRST_WEEK).map((c) => c.id)).toEqual([
       'geometry',
       'web',
     ]);
     // 08.10.2026 — четверг второй недели
-    expect(classesOn(classes, '2026-10-08', FIRST_WEEK).map((c) => c.id)).toEqual([
+    expect(classesOn(classes, day('2026-10-08'), FIRST_WEEK).map((c) => c.id)).toEqual([
       'geometry',
       'intro',
     ]);
   });
 
   it('не показывает пару раньше даты «с …»', () => {
-    expect(classesOn(classes, '2026-10-03', FIRST_WEEK)).toEqual([]);
-    expect(classesOn(classes, '2026-10-10', FIRST_WEEK).map((c) => c.id)).toEqual(['psychology']);
+    expect(classesOn(classes, day('2026-10-03'), FIRST_WEEK)).toEqual([]);
+    expect(classesOn(classes, day('2026-10-10'), FIRST_WEEK).map((c) => c.id)).toEqual([
+      'psychology',
+    ]);
   });
 });

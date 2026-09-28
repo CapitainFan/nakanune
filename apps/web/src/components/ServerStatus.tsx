@@ -6,16 +6,7 @@ import { API_URL } from '@/lib/api';
 
 type State = { kind: 'loading' } | { kind: 'ok'; health: HealthResponse } | { kind: 'error' };
 
-type Status = 'checking' | 'up' | 'down' | 'unknown';
-
-const STATUS_VIEW: Record<Status, { text: string; dot: string }> = {
-  checking: { text: 'проверяю…', dot: 'animate-pulse bg-zinc-400' },
-  up: { text: 'работает', dot: 'bg-emerald-500' },
-  down: { text: 'нет связи', dot: 'bg-red-500' },
-  unknown: { text: 'неизвестно', dot: 'bg-zinc-400' },
-};
-
-/** Проверяет всю цепочку: браузер → API-сервер (CORS) → Postgres. */
+/** Строка в подвале: отвечают ли API-сервер и база (браузер → API с CORS → Postgres). */
 export function ServerStatus() {
   const [state, setState] = useState<State>({ kind: 'loading' });
 
@@ -33,34 +24,27 @@ export function ServerStatus() {
     return () => controller.abort();
   }, []);
 
-  const server: Status =
-    state.kind === 'loading' ? 'checking' : state.kind === 'ok' ? 'up' : 'down';
-  const db: Status =
-    state.kind === 'loading' ? 'checking' : state.kind === 'ok' ? state.health.db : 'unknown';
+  if (state.kind === 'loading') return null;
 
+  if (state.kind === 'error') {
+    return (
+      <p className="text-xs text-red-600 dark:text-red-400">
+        <Dot className="bg-red-500" /> API-сервер не отвечает на {API_URL}. Запусти его:{' '}
+        <code>pnpm dev:server</code>
+      </p>
+    );
+  }
+
+  const dbUp = state.health.db === 'up';
   return (
-    <section className="rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
-      <h2 className="mb-3 text-sm font-medium text-zinc-500">Состояние</h2>
-      <ul className="space-y-2">
-        <StatusRow label="API-сервер" status={server} />
-        <StatusRow label="База данных" status={db} />
-      </ul>
-      {state.kind === 'error' && (
-        <p className="mt-4 text-sm text-zinc-500">
-          Сервер не отвечает на {API_URL}. Запусти его: <code>pnpm dev:server</code>
-        </p>
-      )}
-    </section>
+    <p className="text-xs text-zinc-500">
+      <Dot className="bg-emerald-500" /> API работает ·{' '}
+      <Dot className={dbUp ? 'bg-emerald-500' : 'bg-red-500'} /> база{' '}
+      {dbUp ? 'работает' : 'недоступна'}
+    </p>
   );
 }
 
-function StatusRow({ label, status }: { label: string; status: Status }) {
-  const view = STATUS_VIEW[status];
-  return (
-    <li className="flex items-center gap-3">
-      <span className={`size-2.5 rounded-full ${view.dot}`} aria-hidden />
-      <span className="font-medium">{label}</span>
-      <span className="text-zinc-500">{view.text}</span>
-    </li>
-  );
+function Dot({ className }: { className: string }) {
+  return <span className={`inline-block size-2 rounded-full ${className}`} aria-hidden />;
 }

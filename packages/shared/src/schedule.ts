@@ -1,13 +1,16 @@
 import { differenceInCalendarWeeks, getISODay } from 'date-fns';
 import type { ClassSessionDto } from './schemas/schedule';
-import { inMinsk, toMinskDateKey } from './time';
+import { fromMinskDateKey, inMinsk, toMinskDateKey } from './time';
 
 /**
- * Номер недели для пометок «1н/2н»: первая — та, в которую попадает firstWeekDate,
- * дальше чередуются. Недели — с понедельника, дни — по Минску.
+ * Номер недели для пометок «1н/2н»: первая — та, в которую попадает firstWeekDate
+ * (`YYYY-MM-DD`), дальше чередуются. Недели — с понедельника, дни — по Минску.
  */
-export function weekParityOf(date: Date | string, firstWeekDate: string): 1 | 2 {
-  const weeks = differenceInCalendarWeeks(date, firstWeekDate, { weekStartsOn: 1, in: inMinsk });
+export function weekParityOf(date: Date, firstWeekDate: string): 1 | 2 {
+  const weeks = differenceInCalendarWeeks(date, fromMinskDateKey(firstWeekDate), {
+    weekStartsOn: 1,
+    in: inMinsk,
+  });
   return weeks % 2 === 0 ? 1 : 2;
 }
 
@@ -16,7 +19,7 @@ type ScheduledClass = Pick<ClassSessionDto, 'weekday' | 'weekParity' | 'validFro
 /** Пары на конкретную дату: день недели, чётность недели и «с 10.10». */
 export function classesOn<T extends ScheduledClass>(
   classes: T[],
-  date: Date | string,
+  date: Date,
   firstWeekDate: string,
 ): T[] {
   const weekday = getISODay(date, { in: inMinsk });

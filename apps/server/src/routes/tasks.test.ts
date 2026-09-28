@@ -110,6 +110,50 @@ describe('PUT /api/tasks/:id', () => {
   });
 });
 
+describe('PATCH /api/tasks', () => {
+  it('меняет статус сразу у нескольких заданий', async () => {
+    const [a, b, untouched] = await createTasks([
+      { title: 'Решить №5' },
+      { title: 'Решить №6' },
+      { title: 'Решить №7' },
+    ]);
+
+    const res = await request(app)
+      .patch('/api/tasks')
+      .send({ ids: [a!.id, b!.id], patch: { status: 'DONE' } })
+      .expect(200);
+    expect(res.body.map((t: TaskDto) => t.status)).toEqual(['DONE', 'DONE']);
+
+    const all = await request(app).get('/api/tasks').expect(200);
+    const statusOf = (id: string) => all.body.find((t: TaskDto) => t.id === id).status;
+    expect(statusOf(untouched!.id)).toBe('TODO');
+  });
+
+  it('если хоть одного задания нет — не меняет ни одно', async () => {
+    const [task] = await createTasks([{ title: 'Решить №5' }]);
+
+    await request(app)
+      .patch('/api/tasks')
+      .send({ ids: [task!.id, 'missing'], patch: { status: 'DONE' } })
+      .expect(404);
+
+    const res = await request(app).get('/api/tasks').expect(200);
+    expect(res.body[0].status).toBe('TODO');
+  });
+
+  it('проверяет тело: менять можно только статус и архив', async () => {
+    const [task] = await createTasks([{ title: 'Решить №5' }]);
+    await request(app)
+      .patch('/api/tasks')
+      .send({ ids: [task!.id], patch: {} })
+      .expect(400);
+    await request(app)
+      .patch('/api/tasks')
+      .send({ ids: [], patch: { archived: true } })
+      .expect(400);
+  });
+});
+
 describe('DELETE /api/tasks/:id', () => {
   it('удаляет задание; повторно — 404', async () => {
     const [task] = await createTasks([{ title: 'Решить №5' }]);

@@ -2,6 +2,7 @@
 // Источник: server.js — GET/POST /api/tasks, PUT/DELETE /api/tasks/:id.
 import type { Prisma } from '@nakanune/db';
 import {
+  TaskBulkUpdateSchema,
   TaskCreateSchema,
   TaskListQuerySchema,
   TaskUpdateSchema,
@@ -105,6 +106,24 @@ tasksRouter.post('/', async (req, res) => {
 
   const status = created.length > 0 ? 201 : report.errors.length === items.length ? 400 : 200;
   res.status(status).json(report);
+});
+
+/**
+ * Статус или архив сразу у нескольких заданий — одной транзакцией: либо обновятся все,
+ * либо ни одно. В StudyPlan «отметить все за день» слал N запросов, и при ошибке одного
+ * интерфейс откатывал все, хотя часть уже сохранилась на сервере.
+ */
+tasksRouter.patch('/', async (req, res) => {
+  const { ids, patch } = parseOr400(TaskBulkUpdateSchema, req.body);
+  const uniqueIds = [...new Set(ids)];
+
+  const tasks = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.task.updateMany({ where: { id: { in: uniqueIds } }, data: patch });
+    // Исключение внутри транзакции откатывает и уже сделанный updateMany
+    if (count !== uniqueIds.length) throw new HttpError(404, 'Часть заданий не найдена');
+    return tx.task.findMany({ where: { id: { in: uniqueIds } } });
+  });
+  res.json(tasks.map(toTaskDto));
 });
 
 tasksRouter.put('/:id', async (req, res) => {

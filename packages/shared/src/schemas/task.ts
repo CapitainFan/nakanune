@@ -71,8 +71,21 @@ export const TaskUpdateSchema = z
   .partial()
   .refine((patch) => Object.keys(patch).length > 0, 'Нет полей для обновления');
 
+/**
+ * Тело PATCH /api/tasks — сменить статус или архив сразу у нескольких заданий
+ * («отметить все за день»). В StudyPlan это были N отдельных PUT-запросов.
+ */
+export const TaskBulkUpdateSchema = z.object({
+  ids: z.array(z.string()).min(1).max(200),
+  patch: z
+    .object({ status: TaskStatusSchema, archived: z.boolean() })
+    .partial()
+    .refine((patch) => Object.keys(patch).length > 0, 'Нет полей для обновления'),
+});
+
 export type TaskCreateInput = z.infer<typeof TaskCreateSchema>;
 export type TaskUpdateInput = z.infer<typeof TaskUpdateSchema>;
+export type TaskBulkUpdateInput = z.infer<typeof TaskBulkUpdateSchema>;
 
 /** Фильтры GET /api/tasks: ?status=TODO&archived=false&from=…&to=… (срок в [from, to)). */
 export const TaskListQuerySchema = z.object({
