@@ -30,6 +30,18 @@ const EnvSchema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(z.string()).min(1, 'Укажи хотя бы одну модель')),
+  // Ключ для ссылок и сессий источников (в ссылке календаря Moodle — личный токен).
+  // 32 байта в base64: openssl rand -base64 32. Без него источники с секретами не добавить
+  ENCRYPTION_KEY: z
+    .string()
+    .optional()
+    .transform((key) => key?.trim() || undefined)
+    .refine(
+      (key) => key === undefined || Buffer.from(key, 'base64').length === 32,
+      'Нужны 32 байта в base64: openssl rand -base64 32',
+    ),
+  // Как часто проверять источники заданий (Moodle, потом Telegram). По умолчанию — раз в час
+  CRON_SCHEDULE: z.string().refine(isValidCron, 'Неверное cron-выражение').default('0 * * * *'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

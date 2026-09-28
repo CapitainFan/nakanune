@@ -13,6 +13,7 @@ import {
 } from '@nakanune/shared';
 import { format } from 'date-fns';
 import { ZodError } from 'zod';
+import { homeworkSubject } from './context';
 import { extractWithGemini, type GeminiConfig, type MessageForAi } from './gemini';
 import { buildSystemInstruction, listUpcomingClasses } from './prompt';
 
@@ -133,7 +134,7 @@ function fromAiItems(
     // В StudyPlan пустое имя предмета совпадало с первым же предметом, а «не нашёлся» —
     // превращался в subjects[3] (баг №6). Здесь не нашёлся — значит «Без предмета»
     const found = item.subjectName ? findSubjectByName(item.subjectName, context.subjects) : null;
-    const subjectId = found && homeworkSubject(found, context);
+    const subjectId = found && homeworkSubject(found, context.practiceOf);
     let dueAt = parseAiDate(item.dueAt);
     // Срок, который не удалось прочитать, помечаем как догадку
     let dueAtIsGuess = item.dueAtIsGuess || (item.dueAt !== null && dueAt === null);
@@ -165,14 +166,6 @@ function fromAiItems(
   });
 }
 
-/**
- * Предмет, на который записать задание: у лекционного предмета с отдельной практикой
- * (МП → Практикум по программированию) — практика, если прямо не сказано «к лекции».
- */
-function homeworkSubject(subjectId: string, context: ExtractContext, atLecture = false): string {
-  return (!atLecture && context.practiceOf?.[subjectId]) || subjectId;
-}
-
 /** 23:59 или 00:00 по Минску — модель назвала день, а не время. */
 function isEndOfDay(date: Date): boolean {
   const time = format(date, 'HH:mm', { in: inMinsk });
@@ -198,7 +191,7 @@ function fromHeuristic(messages: MessageForAi[], context: ExtractContext): Draft
   }).map(({ message, task }) => {
     // «к лекции» по МП — остаётся лекцией, остальное — на практику
     const subjectId =
-      task.subjectId && homeworkSubject(task.subjectId, context, task.due?.atLecture);
+      task.subjectId && homeworkSubject(task.subjectId, context.practiceOf, task.due?.atLecture);
     const due = resolveDue(task.due, subjectId, message.sentAt, context.schedule);
     return {
       messageId: message.id,

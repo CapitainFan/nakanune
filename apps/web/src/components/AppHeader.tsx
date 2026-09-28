@@ -8,6 +8,7 @@ const TABS = [
   { href: '/', label: 'Задания' },
   { href: '/calendar', label: 'Календарь' },
   { href: '/inbox', label: 'Входящие' },
+  { href: '/sources', label: 'Источники' },
 ];
 
 export function AppHeader() {

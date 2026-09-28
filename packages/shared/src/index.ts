@@ -5,6 +5,7 @@ export * from './schedule';
 export * from './schemas/extract';
 export * from './schemas/health';
 export * from './schemas/schedule';
+export * from './schemas/source';
 export * from './schemas/subject';
 export * from './schemas/task';
 export * from './time';

@@ -20,6 +20,8 @@ type TasksState = {
   status: 'idle' | 'loading' | 'ready' | 'error';
 
   fetchInitialData: () => Promise<void>;
+  /** Тихо перечитать задания (после синхронизации источника), без экрана загрузки. */
+  reloadTasks: () => Promise<void>;
   addTasks: (tasks: TaskCreateInput[]) => Promise<boolean>;
   updateTask: (id: string, patch: TaskUpdateInput) => Promise<void>;
   toggleTaskStatus: (id: string) => Promise<void>;
@@ -80,6 +82,14 @@ export const useTasksStore = create<TasksState>()((set, get) => {
       } catch (error) {
         set({ status: 'error' });
         toast.error('Не удалось загрузить задания', { description: describeError(error) });
+      }
+    },
+
+    async reloadTasks() {
+      try {
+        set({ tasks: await api.getTasks() });
+      } catch (error) {
+        toast.error('Не удалось обновить задания', { description: describeError(error) });
       }
     },
 

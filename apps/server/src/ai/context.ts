@@ -43,3 +43,15 @@ export async function loadExtractionContext(): Promise<ExtractionContext> {
       : null;
   return { subjects, schedule, practiceOf };
 }
+
+/**
+ * Предмет, на который записать задание: у лекционного предмета с отдельной практикой
+ * (МП → Практикум по программированию) — практика, если прямо не сказано «к лекции».
+ */
+export function homeworkSubject(
+  subjectId: string,
+  practiceOf: Record<string, string> = {},
+  atLecture = false,
+): string {
+  return (!atLecture && practiceOf[subjectId]) || subjectId;
+}

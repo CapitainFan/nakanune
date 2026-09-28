@@ -2,8 +2,12 @@ import {
   CreateTasksReportSchema,
   ExtractResultSchema,
   ScheduleResponseSchema,
+  SourceSchema,
+  SourceSyncResponseSchema,
   SubjectSchema,
   TaskSchema,
+  type SourceCreateInput,
+  type SourceSyncResponse,
   type TaskBulkUpdateInput,
   type TaskCreateInput,
   type TaskUpdateInput,
@@ -63,6 +67,7 @@ const withJson = (method: string, data: unknown): RequestInit => ({
   body: JSON.stringify(data),
 });
 const taskPath = (id: string) => `/api/tasks/${encodeURIComponent(id)}`;
+const sourcePath = (id: string, suffix = '') => `/api/sources/${encodeURIComponent(id)}${suffix}`;
 
 export const api = {
   getSubjects: () => request('/api/subjects', SubjectSchema.array()),
@@ -78,6 +83,20 @@ export const api = {
     request('/api/extract', ExtractResultSchema, withJson('POST', { text })),
   getSchedule: () => request('/api/schedule', ScheduleResponseSchema),
   syncSchedule: () => request('/api/schedule/sync', ScheduleResponseSchema, { method: 'POST' }),
+  getSources: () => request('/api/sources', SourceSchema.array()),
+  addSource: (input: SourceCreateInput) =>
+    request('/api/sources', SourceSyncResponseSchema, withJson('POST', input)),
+  /** 502 (Moodle не ответил) — тоже ответ: в нём источник с lastError и итог синхронизации. */
+  syncSource: async (id: string): Promise<SourceSyncResponse> => {
+    try {
+      return await request(sourcePath(id, '/sync'), SourceSyncResponseSchema, { method: 'POST' });
+    } catch (error) {
+      const parsed = error instanceof ApiError && SourceSyncResponseSchema.safeParse(error.body);
+      if (parsed && parsed.success) return parsed.data;
+      throw error;
+    }
+  },
+  deleteSource: (id: string) => request(sourcePath(id), nothing, { method: 'DELETE' }),
 };
 
 /** Текст ошибки для тоста. */

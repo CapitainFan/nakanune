@@ -40,11 +40,15 @@ describe('GET /api/schedule', () => {
     expect(res.body.refreshing).toBe(true);
     expect(res.body.classes).toHaveLength(23);
 
-    // Фоновая проверка отметит новое время
-    await vi.waitFor(async () => {
-      const saved = await prisma.source.findUniqueOrThrow({ where: { id: source.id } });
-      expect(saved.lastCheckedAt!.getTime()).toBeGreaterThan(longAgo.getTime());
-    });
+    // Фоновая проверка отметит новое время. Ждём до 5 с: при полном прогоне тестов
+    // машина загружена, и секунды по умолчанию бывает мало
+    await vi.waitFor(
+      async () => {
+        const saved = await prisma.source.findUniqueOrThrow({ where: { id: source.id } });
+        expect(saved.lastCheckedAt!.getTime()).toBeGreaterThan(longAgo.getTime());
+      },
+      { timeout: 5000 },
+    );
   });
 });
 

@@ -3,6 +3,7 @@ import {
   ScheduleConfigSchema,
   type ClassSessionDto,
   type ScheduleResponse,
+  type SourceDto,
   type SubjectDto,
   type TaskDto,
 } from '@nakanune/shared';
@@ -83,5 +84,26 @@ export function toScheduleSourceDto(source: Source): NonNullable<ScheduleRespons
     firstWeekDate: config.firstWeekDate,
     lastCheckedAt: source.lastCheckedAt?.toISOString() ?? null,
     lastError: source.lastError,
+  };
+}
+
+/**
+ * Источник для списка. Из config берём только то, что можно показать: для Moodle — адрес
+ * сайта (ссылка с токеном остаётся зашифрованной на сервере), для расписания — сайт факультета.
+ */
+export function toSourceDto(source: Source & { _count: { tasks: number } }): SourceDto {
+  const config = (source.config ?? {}) as Record<string, unknown>;
+  let detail: string | null = null;
+  if (typeof config.host === 'string') detail = config.host;
+  else if (typeof config.url === 'string') detail = new URL(config.url).host;
+  return {
+    id: source.id,
+    type: source.type,
+    title: source.title,
+    enabled: source.enabled,
+    detail,
+    lastCheckedAt: source.lastCheckedAt?.toISOString() ?? null,
+    lastError: source.lastError,
+    taskCount: source._count.tasks,
   };
 }
