@@ -7,7 +7,8 @@ import { format } from 'date-fns';
  */
 export const TIMEZONE = 'Europe/Minsk';
 
-const inMinsk = tz(TIMEZONE);
+/** Контекст для функций date-fns: `format(date, 'HH:mm', { in: inMinsk })` считает по Минску. */
+export const inMinsk = tz(TIMEZONE);
 
 /** День по Минску в виде `YYYY-MM-DD` — ключ для группировки и поиска дублей. */
 export function toMinskDateKey(date: Date | string): string {

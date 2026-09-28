@@ -48,17 +48,20 @@ const subjects = [
     color: '#14b8a6',
     aliases: ['введение в спец', 'ВвС'],
   },
+  // На английском своя разбивка на подгруппы (а/б/в/г) — я в «а»
   {
     name: 'Английский язык',
     shortCode: 'Англ',
     color: '#22c55e',
     aliases: ['английский', 'англ', 'инглиш'],
+    subgroup: 'а',
   },
   {
     name: 'Английский язык (профессиональная лексика)',
     shortCode: 'Англ-проф',
     color: '#84cc16',
     aliases: ['проф. английский', 'проф лексика', 'профессиональная лексика'],
+    subgroup: 'а',
   },
   {
     name: 'История белорусской государственности',
@@ -87,6 +90,18 @@ const subjects = [
   },
 ];
 
+// Расписание пар моей группы. На остальных предметах я в подгруппе «б».
+// Недели «1н/2н» считаются от недели, в которую попадает 1 сентября.
+const scheduleSource = {
+  type: 'MMF_SCHEDULE',
+  title: 'Расписание: 1 курс, 2 группа',
+  config: {
+    url: 'https://mmf.bsu.by/ru/raspisanie-zanyatij/dnevnoe-otdelenie/1-kurs/2-gruppa/',
+    defaultSubgroup: 'б',
+    firstWeekDate: '2026-09-01',
+  },
+} as const;
+
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error('DATABASE_URL не задан — скопируй .env.example в .env');
@@ -104,6 +119,13 @@ try {
     });
   }
   console.log(`Предметов в базе: ${await prisma.subject.count()}`);
+
+  // Источник создаём, только если его ещё нет: повторный сид не сбросит его состояние
+  const existing = await prisma.source.findFirst({ where: { type: scheduleSource.type } });
+  if (!existing) {
+    await prisma.source.create({ data: scheduleSource });
+    console.log(`Добавлен источник: ${scheduleSource.title}`);
+  }
 } finally {
   await prisma.$disconnect();
 }

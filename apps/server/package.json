@@ -14,6 +14,8 @@
     "@nakanune/shared": "workspace:*",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "node-cron": "^4.6.0",
+    "node-html-parser": "^9.0.4",
     "tsx": "^4.23.15",
     "zod": "catalog:"
   },

@@ -1,3 +1,4 @@
+import { validate as isValidCron } from 'node-cron';
 import { z } from 'zod';
 
 // Переменные окружения проверяем один раз при старте: с неверным конфигом
@@ -10,6 +11,8 @@ const EnvSchema = z.object({
   DATABASE_URL: z.url(),
   // В StudyPlan был cors() для всех сайтов (баг №12) — у нас только адрес фронта.
   WEB_ORIGIN: z.url().default('http://localhost:3000'),
+  // Когда перепроверять расписание пар (по Минску). По умолчанию — каждый день в 6:00.
+  SCHEDULE_CRON: z.string().refine(isValidCron, 'Неверное cron-выражение').default('0 6 * * *'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

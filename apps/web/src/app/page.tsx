@@ -1,4 +1,5 @@
 import { ServerStatus } from '@/components/ServerStatus';
+import { UpcomingClasses } from '@/components/UpcomingClasses';
 
 export default function HomePage() {
   return (
@@ -11,11 +12,11 @@ export default function HomePage() {
         </p>
       </header>
 
+      <UpcomingClasses />
+
       <ServerStatus />
 
-      <p className="text-sm text-zinc-500">
-        Этап 0 — каркас. Вкладки «Задания» и «Календарь» появятся на Этапе 2.
-      </p>
+      <p className="text-sm text-zinc-500">Вкладки «Задания» и «Календарь» появятся на Этапе 2.</p>
     </main>
   );
 }

@@ -9,6 +9,7 @@ import request from 'supertest';
 import { createApp } from '../src/app';
 import { prisma } from '../src/db';
 import { env } from '../src/env';
+import { SCHEDULE_URL } from './schedule-site';
 
 export const app = createApp();
 
@@ -28,4 +29,25 @@ export async function createSubject(name: string): Promise<SubjectDto> {
 export async function createTasks(tasks: TaskCreateInput[]): Promise<TaskDto[]> {
   const res = await request(app).post('/api/tasks').send(tasks).expect(201);
   return CreateTasksReportSchema.parse(res.body).inserted;
+}
+
+/** Как в сиде: английский — подгруппа «а», остальное — «б»; у ИБГ алиас с опечаткой из расписания. */
+export async function setupSchedule() {
+  await prisma.subject.createMany({
+    data: [
+      { name: 'Английский язык', subgroup: 'а' },
+      { name: 'Английский язык (профессиональная лексика)', subgroup: 'а' },
+      {
+        name: 'История белорусской государственности',
+        aliases: ['История белорусской гусударственности'],
+      },
+    ],
+  });
+  return prisma.source.create({
+    data: {
+      type: 'MMF_SCHEDULE',
+      title: 'Расписание: 1 курс, 2 группа',
+      config: { url: SCHEDULE_URL, defaultSubgroup: 'б', firstWeekDate: '2026-09-01' },
+    },
+  });
 }

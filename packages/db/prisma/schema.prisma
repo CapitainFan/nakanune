@@ -17,6 +17,9 @@ model Subject {
   shortCode String? // short_code из StudyPlan
   color     String         @default("#3b82f6") // hex вместо CSS-переменных StudyPlan
   aliases   String[]       @default([]) // «матан», «мат. анализ», «МА»
+  // Моя подгруппа по этому предмету (на английском своя разбивка). null — берётся
+  // defaultSubgroup из настроек расписания.
+  subgroup  String?
   tasks     Task[]
   classes   ClassSession[]
   createdAt DateTime       @default(now())
@@ -68,19 +71,21 @@ enum SourceType {
   TELEGRAM
   MOODLE_ICS
   MANUAL
+  MMF_SCHEDULE // расписание пар со страницы группы на mmf.bsu.by
 }
 
 model Source {
-  id            String       @id @default(cuid())
+  id            String         @id @default(cuid())
   type          SourceType
   title         String
-  config        Json // telegram: { peer } | ics: { urlEncrypted }
-  enabled       Boolean      @default(true)
+  config        Json // telegram: { peer } | ics: { urlEncrypted } | расписание: { url, defaultSubgroup, firstWeekDate }
+  enabled       Boolean        @default(true)
   lastCheckedAt DateTime?
-  lastCursor    String? // TG: id последнего сообщения; ICS: хэш фида
+  lastCursor    String? // TG: id последнего сообщения; ICS и расписание: хэш содержимого
   lastError     String?
   rawMessages   RawMessage[]
   tasks         Task[]
+  classes       ClassSession[]
 }
 
 model RawMessage {
@@ -98,14 +103,29 @@ model RawMessage {
   @@unique([sourceId, externalId])
 }
 
-// Расписание пар (Этап 6)
+enum ClassKind {
+  LECTURE // лекц.
+  PRACTICE // практ.
+  LAB // лаб.
+  SEMINAR // сем.
+}
+
+// Пара в недельном расписании. Строки из источника MMF_SCHEDULE при каждой
+// синхронизации заменяются целиком.
 model ClassSession {
-  id         String  @id @default(cuid())
+  id         String     @id @default(cuid())
   subjectId  String
-  subject    Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject    Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   weekday    Int // 1 = понедельник
-  startTime  String // "09:00"
+  startTime  String // "09:45"
   endTime    String
-  weekParity Int? // null — каждую неделю, 1/2 — числитель/знаменатель
+  weekParity Int? // null — каждую неделю, 1/2 — первая/вторая (1н/2н в расписании)
+  kind       ClassKind?
+  teacher    String?
   room       String?
+  subgroup   String? // «а», «б»… null — вся группа
+  validFrom  DateTime?  @db.Date // «с 10.10» — пара начинается не с первой недели
+  note       String? // адрес корпуса и прочие пометки из расписания
+  sourceId   String?
+  source     Source?    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 }

@@ -4,6 +4,9 @@ pnpm-lock.yaml
 apps/web/.next/
 apps/web/next-env.d.ts
 
+# Фикстуры тестов — точные копии внешних данных, форматировать их нельзя
+**/test/fixtures/
+
 # Эти файлы пишет и перезаписывает `next dev`
 apps/web/AGENTS.md
 apps/web/CLAUDE.md

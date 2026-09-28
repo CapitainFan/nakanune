@@ -6,6 +6,7 @@ import { env } from './env';
 import { HttpError } from './lib/http';
 import { exportRouter } from './routes/export';
 import { healthRouter } from './routes/health';
+import { scheduleRouter } from './routes/schedule';
 import { subjectsRouter } from './routes/subjects';
 import { tasksRouter } from './routes/tasks';
 
@@ -25,6 +26,7 @@ export function createApp() {
   app.use('/api/subjects', subjectsRouter);
   app.use('/api/tasks', tasksRouter);
   app.use('/api/export', exportRouter);
+  app.use('/api/schedule', scheduleRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not found' });
