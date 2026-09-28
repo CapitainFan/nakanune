@@ -1,0 +1,21 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Версии, общие для нескольких пакетов, задаём в одном месте.
+# В package.json пакета пишем "typescript": "catalog:" — и все получают одну версию.
+catalog:
+  # TS 7 (нативный компилятор) пока не отдаёт старый JS API, на котором работают
+  # typescript-eslint и проверка типов в Next.js, поэтому остаёмся на 6.0.
+  typescript: ^6.0.3
+  '@types/node': ^24.19.0
+  zod: ^4.6.5
+
+# pnpm 11+ не запускает install-скрипты зависимостей без явного разрешения
+# (защита от вредоносных postinstall). Разрешаем только тем, кому это нужно.
+allowBuilds:
+  '@prisma/engines': true # скачивает движок миграций Prisma
+  esbuild: true # ставит бинарник esbuild (на нём работает tsx)
+  prisma: true
+  sharp: false # Next.js берёт готовый бинарник, сборка не нужна
+  unrs-resolver: false

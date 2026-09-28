@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+**/generated/
+**/migrations/
+apps/web/.next/
+apps/web/next-env.d.ts
+
+# Эти файлы пишет и перезаписывает `next dev`
+apps/web/AGENTS.md
+apps/web/CLAUDE.md

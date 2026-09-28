@@ -1,0 +1,21 @@
+# зависимости
+node_modules/
+
+# секреты: в git попадает только .env.example
+.env
+.env.*
+!.env.example
+
+# сборка и кеши
+dist/
+coverage/
+*.tsbuildinfo
+.turbo/
+.vercel/
+
+# сгенерированный Prisma Client (создаётся командой `pnpm db:generate`)
+packages/db/src/generated/
+
+# логи и системный мусор
+*.log
+.DS_Store

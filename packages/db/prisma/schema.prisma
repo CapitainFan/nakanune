@@ -1,0 +1,111 @@
+// Схема Nakanune. Развитие схемы StudyPlan (database.js): там были таблицы
+// subjects и tasks, здесь к ним добавлены алиасы предметов, источники,
+// сырые сообщения и расписание пар.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Subject {
+  id        String         @id @default(cuid())
+  name      String         @unique
+  shortCode String? // short_code из StudyPlan
+  color     String         @default("#3b82f6") // hex вместо CSS-переменных StudyPlan
+  aliases   String[]       @default([]) // «матан», «мат. анализ», «МА»
+  tasks     Task[]
+  classes   ClassSession[]
+  createdAt DateTime       @default(now())
+}
+
+// В StudyPlan было 'Not Started' | 'Done'.
+// INBOX — задание ждёт проверки на вкладке «Входящие».
+enum TaskStatus {
+  INBOX
+  TODO
+  DONE
+}
+
+enum Priority {
+  low
+  medium
+  high
+}
+
+model Task {
+  id              String      @id @default(cuid())
+  subjectId       String?
+  // Удалили предмет — задание остаётся «Без предмета»
+  subject         Subject?    @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  title           String
+  description     String? // из StudyPlan
+  summary         String? // ИИ-саммари, 2–4 строки
+  notes           String? // из StudyPlan
+  dueAt           DateTime? // срок может быть неизвестен (в StudyPlan подставлялось «+7 дней»)
+  dueAtIsGuess    Boolean     @default(false)
+  status          TaskStatus  @default(TODO)
+  priority        Priority    @default(medium)
+  confidenceScore Int         @default(100) // 0–100, как в StudyPlan
+  labels          String[]    @default([]) // хэштеги, как в StudyPlan
+  archived        Boolean     @default(false)
+  dedupeKey       String?     @unique
+  sourceId        String?
+  source          Source?     @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  rawMessageId    String?
+  rawMessage      RawMessage? @relation(fields: [rawMessageId], references: [id], onDelete: SetNull)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([dueAt])
+  @@index([status])
+}
+
+enum SourceType {
+  TELEGRAM
+  MOODLE_ICS
+  MANUAL
+}
+
+model Source {
+  id            String       @id @default(cuid())
+  type          SourceType
+  title         String
+  config        Json // telegram: { peer } | ics: { urlEncrypted }
+  enabled       Boolean      @default(true)
+  lastCheckedAt DateTime?
+  lastCursor    String? // TG: id последнего сообщения; ICS: хэш фида
+  lastError     String?
+  rawMessages   RawMessage[]
+  tasks         Task[]
+}
+
+model RawMessage {
+  id         String   @id @default(cuid())
+  sourceId   String
+  // Удалили источник — его сырые сообщения больше не нужны
+  source     Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  externalId String // id сообщения TG / UID события iCal
+  text       String
+  sentAt     DateTime
+  processed  Boolean  @default(false)
+  tasks      Task[]
+
+  // Дедупликация, уровень 1: одно сообщение не обрабатывается дважды
+  @@unique([sourceId, externalId])
+}
+
+// Расписание пар (Этап 6)
+model ClassSession {
+  id         String  @id @default(cuid())
+  subjectId  String
+  subject    Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  weekday    Int // 1 = понедельник
+  startTime  String // "09:00"
+  endTime    String
+  weekParity Int? // null — каждую неделю, 1/2 — числитель/знаменатель
+  room       String?
+}

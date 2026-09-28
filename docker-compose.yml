@@ -1,0 +1,23 @@
+# Postgres для локальной разработки: `pnpm db:up` / `pnpm db:down`.
+# Логин и пароль нужны только локально; в проде база будет в Neon или Supabase.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nakanune
+      POSTGRES_PASSWORD: nakanune
+      POSTGRES_DB: nakanune
+    ports:
+      # Снаружи 5433: порт 5432 занят системным PostgreSQL 16 (/Library/PostgreSQL/16)
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nakanune -d nakanune']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  pgdata:

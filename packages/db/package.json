@@ -1,0 +1,30 @@
+{
+  "name": "@nakanune/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "reset": "prisma migrate reset && prisma db seed",
+    "seed": "prisma db seed",
+    "studio": "prisma studio",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "dotenv": "^18.0.4",
+    "prisma": "7.10.0",
+    "tsx": "^4.23.15",
+    "typescript": "catalog:"
+  }
+}
