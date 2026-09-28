@@ -13,6 +13,12 @@ const EnvSchema = z.object({
   WEB_ORIGIN: z.url().default('http://localhost:3000'),
   // Когда перепроверять расписание пар (по Минску). По умолчанию — каждый день в 6:00.
   SCHEDULE_CRON: z.string().refine(isValidCron, 'Неверное cron-выражение').default('0 6 * * *'),
+  // Без ключа разбор текста работает эвристикой. Пустая строка в .env — тоже «нет ключа».
+  GEMINI_API_KEY: z
+    .string()
+    .optional()
+    .transform((key) => key?.trim() || undefined),
+  GEMINI_MODEL: z.string().default('gemini-3.8-flash'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

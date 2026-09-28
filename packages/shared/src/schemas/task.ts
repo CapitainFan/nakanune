@@ -3,15 +3,23 @@ import { z } from 'zod';
 // Значения совпадают с enum'ами в schema.prisma.
 export const TaskStatusSchema = z.enum(['INBOX', 'TODO', 'DONE']);
 export const PrioritySchema = z.enum(['low', 'medium', 'high']);
+export const SourceTypeSchema = z.enum(['TELEGRAM', 'MOODLE_ICS', 'MANUAL', 'MMF_SCHEDULE']);
 
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
 export type Priority = z.infer<typeof PrioritySchema>;
+export type SourceType = z.infer<typeof SourceTypeSchema>;
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   INBOX: 'Входящие',
   TODO: 'К выполнению',
   DONE: 'Сделано',
 };
+
+/**
+ * Порог автопринятия (раздел 8 ТЗ): задание из источника с уверенностью от 75 и точным сроком
+ * сразу идёт в работу, остальное — во «Входящие». В StudyPlan от 75 зеленела полоса уверенности.
+ */
+export const AUTO_ACCEPT_CONFIDENCE = 75;
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
   low: 'низкий',
@@ -21,6 +29,16 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 
 // Дата-время ISO 8601 с часовым поясом: «2026-10-05T20:59:00.000Z» или «…+03:00».
 const isoDateTime = z.iso.datetime({ offset: true });
+
+/** Откуда задание: исходное сообщение, из которого его извлекли. */
+export const TaskOriginSchema = z.object({
+  sourceType: SourceTypeSchema,
+  sourceTitle: z.string(),
+  text: z.string(), // обрезан до разумной длины
+  sentAt: isoDateTime,
+});
+
+export type TaskOrigin = z.infer<typeof TaskOriginSchema>;
 
 /** Задание в ответах API. Служебные поля (dedupeKey, rawMessageId) наружу не отдаём. */
 export const TaskSchema = z.object({
@@ -38,6 +56,7 @@ export const TaskSchema = z.object({
   labels: z.array(z.string()),
   archived: z.boolean(),
   sourceId: z.string().nullable(),
+  origin: TaskOriginSchema.nullable(),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
 });

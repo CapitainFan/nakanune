@@ -18,8 +18,10 @@ catalog:
 # pnpm 11+ не запускает install-скрипты зависимостей без явного разрешения
 # (защита от вредоносных postinstall). Разрешаем только тем, кому это нужно.
 allowBuilds:
+  '@google/genai': false # скрипт — пустой echo
   '@prisma/engines': true # скачивает движок миграций Prisma
   esbuild: true # ставит бинарник esbuild (на нём работает tsx)
   prisma: true
+  protobufjs: false # скрипт только печатает предупреждение о версиях
   sharp: false # Next.js берёт готовый бинарник, сборка не нужна
   unrs-resolver: false

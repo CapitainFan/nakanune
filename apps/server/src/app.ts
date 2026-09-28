@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { env } from './env';
 import { HttpError } from './lib/http';
 import { exportRouter } from './routes/export';
+import { extractRouter } from './routes/extract';
 import { healthRouter } from './routes/health';
 import { scheduleRouter } from './routes/schedule';
 import { subjectsRouter } from './routes/subjects';
@@ -27,6 +28,7 @@ export function createApp() {
   app.use('/api/tasks', tasksRouter);
   app.use('/api/export', exportRouter);
   app.use('/api/schedule', scheduleRouter);
+  app.use('/api/extract', extractRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not found' });

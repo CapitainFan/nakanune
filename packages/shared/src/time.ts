@@ -17,8 +17,14 @@ export function toMinskDateKey(date: Date | string): string {
 
 /** `YYYY-MM-DD` → начало этого дня по Минску (обычный Date — один момент времени). */
 export function fromMinskDateKey(key: string): Date {
-  const [year, month, day] = key.split('-').map(Number);
-  return new Date(new TZDate(year!, month! - 1, day!, TIMEZONE).getTime());
+  return fromMinskDateTime(key, '00:00');
+}
+
+/** `YYYY-MM-DD` и `HH:mm` по Минску → момент времени. */
+export function fromMinskDateTime(dateKey: string, time: string): Date {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  return new Date(new TZDate(year!, month! - 1, day!, hours!, minutes!, TIMEZONE).getTime());
 }
 
 /** Дата и время по Минску в виде `YYYY-MM-DD HH:mm` — для экспорта. */

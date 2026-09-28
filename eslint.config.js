@@ -15,8 +15,12 @@ export default defineConfig([
     rules: {
       // Типы импортируем через `import type` — они исчезают из итогового JS
       '@typescript-eslint/consistent-type-imports': 'error',
-      // Аргумент можно не использовать, если его имя начинается с _
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // Аргумент можно не использовать, если его имя начинается с _; поле, выброшенное
+      // деструктуризацией `const { lost, ...rest } = obj`, — тоже
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
     },
   },
   // Отключает правила, которые спорят с Prettier: форматирование — его работа

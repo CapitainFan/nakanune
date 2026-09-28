@@ -20,7 +20,8 @@ function testDatabaseUrl(): string {
 
 export default defineConfig({
   test: {
-    env: { DATABASE_URL: testDatabaseUrl() },
+    // Ключ Gemini в тестах всегда пустой: настоящий API тесты не трогают, ИИ подменяется
+    env: { DATABASE_URL: testDatabaseUrl(), GEMINI_API_KEY: '' },
     // Создаёт тестовую базу и накатывает миграции (адрес берёт из env выше)
     globalSetup: ['./test/global-setup.ts'],
     // Файлы с тестами маршрутов делят одну базу — запускаем их по очереди

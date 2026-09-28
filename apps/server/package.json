@@ -10,9 +10,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@google/genai": "^2.24.0",
     "@nakanune/db": "workspace:*",
     "@nakanune/shared": "workspace:*",
     "cors": "^2.8.6",
+    "date-fns": "catalog:",
     "express": "^5.2.1",
     "node-cron": "^4.6.0",
     "node-html-parser": "^9.0.4",

@@ -17,6 +17,7 @@ export function makeTask(id: string, fields: Partial<TaskDto> = {}): TaskDto {
     labels: [],
     archived: false,
     sourceId: null,
+    origin: null,
     createdAt: '2026-09-01T00:00:00.000Z',
     updatedAt: '2026-09-01T00:00:00.000Z',
     ...fields,

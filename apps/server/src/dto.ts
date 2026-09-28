@@ -1,4 +1,4 @@
-import type { ClassSession, Source, Subject, Task } from '@nakanune/db';
+import type { ClassSession, Source, Subject } from '@nakanune/db';
 import {
   ScheduleConfigSchema,
   type ClassSessionDto,
@@ -6,6 +6,10 @@ import {
   type SubjectDto,
   type TaskDto,
 } from '@nakanune/shared';
+import type { TaskRow } from './tasks/query';
+
+/** Сколько символов исходного сообщения отдаём в карточку задания. */
+const ORIGIN_TEXT_LIMIT = 500;
 
 // Строки базы → объекты API. Поля перечислены явно: служебное (dedupeKey, rawMessageId)
 // не утечёт наружу, даже если в схеме появятся новые колонки.
@@ -20,7 +24,17 @@ export function toSubjectDto(subject: Subject): SubjectDto {
   };
 }
 
-export function toTaskDto(task: Task): TaskDto {
+export function toTaskDto(task: TaskRow): TaskDto {
+  const origin = task.rawMessage && {
+    sourceType: task.source?.type ?? 'MANUAL',
+    sourceTitle: task.source?.title ?? '',
+    text:
+      task.rawMessage.text.length > ORIGIN_TEXT_LIMIT
+        ? `${task.rawMessage.text.slice(0, ORIGIN_TEXT_LIMIT)}…`
+        : task.rawMessage.text,
+    sentAt: task.rawMessage.sentAt.toISOString(),
+  };
+
   return {
     id: task.id,
     subjectId: task.subjectId,
@@ -36,6 +50,7 @@ export function toTaskDto(task: Task): TaskDto {
     labels: task.labels,
     archived: task.archived,
     sourceId: task.sourceId,
+    origin: origin ?? null,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
   };

@@ -1,5 +1,6 @@
 import {
   CreateTasksReportSchema,
+  ExtractResultSchema,
   ScheduleResponseSchema,
   SubjectSchema,
   TaskSchema,
@@ -73,6 +74,8 @@ export const api = {
   updateTasks: (input: TaskBulkUpdateInput) =>
     request('/api/tasks', TaskSchema.array(), withJson('PATCH', input)),
   deleteTask: (id: string) => request(taskPath(id), nothing, { method: 'DELETE' }),
+  extract: (text: string) =>
+    request('/api/extract', ExtractResultSchema, withJson('POST', { text })),
   getSchedule: () => request('/api/schedule', ScheduleResponseSchema),
   syncSchedule: () => request('/api/schedule/sync', ScheduleResponseSchema, { method: 'POST' }),
 };

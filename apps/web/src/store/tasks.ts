@@ -3,6 +3,7 @@
 // вместо своего Toast — sonner, подтверждение удаления вынесено из стора в компонент.
 import {
   toMinskDateKey,
+  type ExtractResult,
   type SubjectDto,
   type TaskCreateInput,
   type TaskDto,
@@ -26,6 +27,10 @@ type TasksState = {
   restoreTask: (id: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   markPendingTasksForDateCompleted: (dateKey: string) => Promise<void>;
+
+  // «Входящие»: вставка текста на разбор и проверка найденного (в StudyPlan — currentPaste)
+  extractFromText: (text: string) => Promise<ExtractResult | null>;
+  acceptTasks: (ids: string[]) => Promise<void>;
 };
 
 // Стор живёт на уровне модуля. На сервере Next такой модуль общий для всех запросов,
@@ -172,6 +177,38 @@ export const useTasksStore = create<TasksState>()((set, get) => {
         { status: 'DONE' },
         () => api.updateTasks({ ids, patch: { status: 'DONE' } }),
         'Не удалось отметить задания',
+      );
+    },
+
+    /** Разбор вставленного текста: найденное сервер кладёт во «Входящие» (статус INBOX). */
+    async extractFromText(text) {
+      try {
+        const result = await api.extract(text);
+        const { inserted, duplicates } = result.report;
+        set((state) => ({ tasks: [...state.tasks, ...inserted].sort(compareTasks) }));
+
+        if (inserted.length > 0) {
+          toast.success(`Найдено заданий: ${inserted.length}`, { description: 'Проверь их ниже' });
+        } else if (duplicates.length > 0) {
+          toast.info('Эти задания уже есть');
+        } else {
+          toast.info('Заданий в тексте не нашлось');
+        }
+        return result;
+      } catch (error) {
+        toast.error('Не удалось разобрать текст', { description: describeError(error) });
+        return null;
+      }
+    },
+
+    /** «Принять»: задание из «Входящих» становится обычным (TODO). */
+    async acceptTasks(ids) {
+      if (ids.length === 0) return;
+      await optimistic(
+        ids,
+        { status: 'TODO' },
+        () => api.updateTasks({ ids, patch: { status: 'TODO' } }),
+        'Не удалось принять',
       );
     },
   };
