@@ -36,7 +36,8 @@ type Schema<T> = { parse: (data: unknown) => T };
 async function request<T>(path: string, schema: Schema<T>, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: init.body ? { 'Content-Type': 'application/json' } : undefined,
+    // JSON по умолчанию; фото доски шлётся как есть, со своим Content-Type
+    headers: init.headers ?? (init.body ? { 'Content-Type': 'application/json' } : undefined),
   });
   const body: unknown = res.status === 204 ? null : await res.json().catch(() => null);
 
@@ -83,6 +84,12 @@ export const api = {
   deleteTask: (id: string) => request(taskPath(id), nothing, { method: 'DELETE' }),
   extract: (text: string) =>
     request('/api/extract', ExtractResultSchema, withJson('POST', { text })),
+  extractImage: (file: File) =>
+    request('/api/extract/image', ExtractResultSchema, {
+      method: 'POST',
+      body: file,
+      headers: { 'Content-Type': file.type },
+    }),
   getSchedule: () => request('/api/schedule', ScheduleResponseSchema),
   syncSchedule: () => request('/api/schedule/sync', ScheduleResponseSchema, { method: 'POST' }),
   getSources: () => request('/api/sources', SourceSchema.array()),

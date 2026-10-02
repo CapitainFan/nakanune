@@ -11,7 +11,7 @@ import {
   type TaskDto,
 } from '@nakanune/shared';
 import { useState } from 'react';
-import { Linkified } from '@/components/Linkified';
+import { TaskDescription } from '@/components/tasks/TaskDescription';
 import { TaskEditForm } from '@/components/tasks/TaskEditForm';
 import { badge, card, ghostButton, primaryButton } from '@/components/ui';
 import { formatDue } from '@/lib/format';
@@ -77,9 +77,11 @@ export function InboxCard({ task, subject, now }: Props) {
 
       <div>
         <h3 className="font-medium">{task.title}</h3>
-        {task.summary && <p className="mt-1 text-sm text-zinc-500">{task.summary}</p>}
+        {task.summary && (
+          <p className="mt-1 text-sm whitespace-pre-line text-zinc-500">{task.summary}</p>
+        )}
         {task.description && (
-          <Linkified text={task.description} className="mt-1 text-sm text-zinc-500" />
+          <TaskDescription text={task.description} className="mt-1 text-sm text-zinc-500" />
         )}
       </div>
 

@@ -32,12 +32,31 @@ type TasksState = {
 
   // «Входящие»: вставка текста на разбор и проверка найденного (в StudyPlan — currentPaste)
   extractFromText: (text: string) => Promise<ExtractResult | null>;
+  /** Фото доски: разбирает только ИИ. */
+  extractFromImage: (file: File) => Promise<ExtractResult | null>;
   acceptTasks: (ids: string[]) => Promise<void>;
 };
 
 // Стор живёт на уровне модуля. На сервере Next такой модуль общий для всех запросов,
 // поэтому данные в него попадают только в браузере — из useEffect в <DataLoader/>.
 export const useTasksStore = create<TasksState>()((set, get) => {
+  /** Задания из разбора — в стор, итог — тостом. where: «в тексте» / «на фото». */
+  function showExtractResult(result: ExtractResult, where: string): ExtractResult {
+    const { inserted, duplicates } = result.report;
+    set((state) => ({ tasks: [...state.tasks, ...inserted].sort(compareTasks) }));
+
+    if (inserted.length > 0) {
+      toast.success(`Найдено заданий: ${inserted.length}`, { description: 'Проверь их ниже' });
+    } else if (result.engine === null) {
+      toast.info(result.notice ?? 'Это уже разбиралось');
+    } else if (duplicates.length > 0) {
+      toast.info('Эти задания уже есть');
+    } else {
+      toast.info(`Заданий ${where} не нашлось`);
+    }
+    return result;
+  }
+
   /**
    * Оптимистичное обновление, как в StudyPlan: интерфейс меняется сразу, запрос идёт следом.
    * Отличия: откат — по id (в StudyPlan по индексу, а список мог измениться за время
@@ -193,22 +212,18 @@ export const useTasksStore = create<TasksState>()((set, get) => {
     /** Разбор вставленного текста: найденное сервер кладёт во «Входящие» (статус INBOX). */
     async extractFromText(text) {
       try {
-        const result = await api.extract(text);
-        const { inserted, duplicates } = result.report;
-        set((state) => ({ tasks: [...state.tasks, ...inserted].sort(compareTasks) }));
-
-        if (inserted.length > 0) {
-          toast.success(`Найдено заданий: ${inserted.length}`, { description: 'Проверь их ниже' });
-        } else if (result.engine === null) {
-          toast.info('Эти сообщения уже разбирались');
-        } else if (duplicates.length > 0) {
-          toast.info('Эти задания уже есть');
-        } else {
-          toast.info('Заданий в тексте не нашлось');
-        }
-        return result;
+        return showExtractResult(await api.extract(text), 'в тексте');
       } catch (error) {
         toast.error('Не удалось разобрать текст', { description: describeError(error) });
+        return null;
+      }
+    },
+
+    async extractFromImage(file) {
+      try {
+        return showExtractResult(await api.extractImage(file), 'на фото');
+      } catch (error) {
+        toast.error('Не удалось разобрать фото', { description: describeError(error) });
         return null;
       }
     },

@@ -4,6 +4,7 @@ import { toMinskDateKey, type TaskDto } from '@nakanune/shared';
 import { useState } from 'react';
 import { useNow } from '@/lib/useNow';
 import { useTasksStore } from '@/store/tasks';
+import { CalendarSubscribe } from './CalendarSubscribe';
 import { DayPanel } from './DayPanel';
 import { MonthGrid } from './MonthGrid';
 
@@ -27,15 +28,18 @@ export function CalendarView() {
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-      <MonthGrid
-        month={month}
-        onMonthChange={setMonth}
-        selected={selected}
-        onSelect={setSelected}
-        today={today}
-        tasksByDay={tasksByDay}
-        subjectsById={subjectsById}
-      />
+      <div className="space-y-4">
+        <MonthGrid
+          month={month}
+          onMonthChange={setMonth}
+          selected={selected}
+          onSelect={setSelected}
+          today={today}
+          tasksByDay={tasksByDay}
+          subjectsById={subjectsById}
+        />
+        <CalendarSubscribe />
+      </div>
       <DayPanel dateKey={selected} now={now} subjectsById={subjectsById} />
     </div>
   );

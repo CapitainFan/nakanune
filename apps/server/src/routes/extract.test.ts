@@ -135,6 +135,15 @@ https://developer.mozilla.org/ru/docs/Web/CSS
     expect(body.report.inserted.map((task) => task.subjectId)).toEqual([practice.id, practice.id]);
   });
 
+  it('фото без ключа Gemini — 503: без ИИ фото не разобрать', async () => {
+    const res = await request(app)
+      .post('/api/extract/image')
+      .set('Content-Type', 'image/jpeg')
+      .send(Buffer.from('photo'))
+      .expect(503);
+    expect(res.body.error).toContain('GEMINI_API_KEY');
+  });
+
   it('пустой текст — 400', async () => {
     await request(app).post('/api/extract').send({ text: '   ' }).expect(400);
   });

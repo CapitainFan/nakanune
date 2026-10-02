@@ -28,6 +28,19 @@ export const ExtractedItemSchema = z.object({
 
 export const ExtractResponseSchema = z.object({ items: z.array(ExtractedItemSchema) });
 
+/**
+ * Ответ ИИ на фото доски (раздел 11.5 ТЗ): те же задания плюс текст с фото как есть —
+ * он сохраняется как исходное сообщение, и видно, что модель прочитала.
+ */
+export const ImageExtractResponseSchema = ExtractResponseSchema.extend({
+  transcript: z.string().describe('весь текст с фото как есть, построчно'),
+});
+
+/** Форматы фото, которые понимает Gemini. */
+export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+/** Больше не принимаем: фото с телефона весит 2–6 МБ. */
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
 export type ExtractedItem = z.output<typeof ExtractedItemSchema>;
 
 /**

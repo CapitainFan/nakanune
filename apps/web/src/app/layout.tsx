@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { AppHeader } from '@/components/AppHeader';
 import { DataLoader } from '@/components/DataLoader';
 import { ServerStatus } from '@/components/ServerStatus';
+import { BRAND_BACKGROUND } from '@/lib/brand';
 import './globals.css';
 
 const geistSans = Geist({
@@ -19,6 +20,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: { default: 'Nakanune', template: '%s — Nakanune' },
   description: 'Домашние задания из учебных чатов и Moodle — к нужному дню',
+  // Установленное на iPhone приложение — без адресной строки Safari
+  appleWebApp: { capable: true, title: 'Nakanune', statusBarStyle: 'black-translucent' },
+};
+
+// Цвет панели браузера и заголовка окна установленного приложения — под тему
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: BRAND_BACKGROUND },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {

@@ -14,7 +14,13 @@ import {
 import { format } from 'date-fns';
 import { ZodError } from 'zod';
 import { homeworkSubject } from './context';
-import { extractWithGemini, type GeminiConfig, type MessageForAi } from './gemini';
+import {
+  extractImageWithGemini,
+  extractWithGemini,
+  type GeminiConfig,
+  type ImageForAi,
+  type MessageForAi,
+} from './gemini';
 import { buildSystemInstruction, listUpcomingClasses } from './prompt';
 
 /** Черновик задания из сообщения — одинаковый у ИИ и у эвристики. */
@@ -73,38 +79,95 @@ export async function extractDrafts(
 
   if (gemini) {
     const earliest = new Date(Math.min(...messages.map((message) => message.sentAt.getTime())));
-    const systemInstruction = buildSystemInstruction({
-      now: context.now,
-      subjects: context.subjects,
-      practiceOf: context.practiceOf ?? {},
-      upcomingClasses: listUpcomingClasses(context.schedule, context.subjects, earliest),
-    });
-    const failures: string[] = [];
-    const deadline = Date.now() + AI_BUDGET_MS;
-    for (const model of gemini.models) {
-      const remaining = deadline - Date.now();
-      if (remaining < MIN_ATTEMPT_MS) break;
-      try {
-        const items = await extractWithGemini(
-          messages,
-          systemInstruction,
-          gemini.apiKey,
-          model,
-          Math.min(MODEL_TIMEOUT_MS, remaining),
-        );
-        return {
-          engine: 'gemini',
-          model,
-          notice: null,
-          drafts: fromAiItems(items, messages, context),
-        };
-      } catch (error) {
-        failures.push(`${model}: ${describeFailure(error)}`);
-      }
+    const systemInstruction = instructionFor(context, earliest);
+    const result = await withModelChain(gemini, (model, timeoutMs) =>
+      extractWithGemini(messages, systemInstruction, gemini.apiKey, model, timeoutMs),
+    );
+    if (result.ok) {
+      return {
+        engine: 'gemini',
+        model: result.model,
+        notice: null,
+        drafts: fromAiItems(result.value, messages, context),
+      };
     }
-    notice = `ИИ не ответил (${failures.join('; ')}) — текст разобран без ИИ, проверь задания внимательнее`;
+    notice = `ИИ не ответил (${result.failures.join('; ')}) — текст разобран без ИИ, проверь задания внимательнее`;
   }
   return { engine: 'heuristic', model: null, notice, drafts: fromHeuristic(messages, context) };
+}
+
+const IMAGE_RULES = [
+  '',
+  'Фото вместо сообщений:',
+  '- Во входных данных фото (доска, конспект, скриншот) и рядом JSON с его id и sentAt. messageId каждого элемента — этот id.',
+  '- transcript — весь текст с фото как есть: каждая строка с фото — отдельной строкой (символ перевода строки \\n между ними). Формулы — как читаются, можно в LaTeX. Неразборчивое — […].',
+  '- Задания на фото ищи по тем же правилам, что и в сообщениях. Нет заданий — один элемент с isHomework=false.',
+].join('\n');
+
+/**
+ * Фото доски (раздел 11.5 ТЗ): та же инструкция и схема, что и для текста, плюс transcript.
+ * Без ИИ фото не разобрать — если ключа нет или модели не ответили, это ошибка.
+ */
+export async function extractDraftsFromImage(
+  image: ImageForAi,
+  context: ExtractContext,
+  gemini: GeminiConfig,
+): Promise<{ model: string; transcript: string; drafts: Draft[] }> {
+  const systemInstruction = instructionFor(context, image.sentAt) + IMAGE_RULES;
+  const result = await withModelChain(
+    gemini,
+    (model, timeoutMs) =>
+      extractImageWithGemini(image, systemInstruction, gemini.apiKey, model, timeoutMs),
+    // Фото модель разбирает дольше текста
+    { budgetMs: 60_000, modelTimeoutMs: 45_000 },
+  );
+  if (!result.ok) throw new Error(`ИИ не ответил (${result.failures.join('; ')})`);
+
+  const message = { id: image.id, sentAt: image.sentAt, source: 'фото доски', text: '' };
+  return {
+    model: result.model,
+    transcript: result.value.transcript.trim(),
+    drafts: fromAiItems(result.value.items, [message], context),
+  };
+}
+
+function instructionFor(context: ExtractContext, earliest: Date): string {
+  return buildSystemInstruction({
+    now: context.now,
+    subjects: context.subjects,
+    practiceOf: context.practiceOf ?? {},
+    upcomingClasses: listUpcomingClasses(context.schedule, context.subjects, earliest),
+  });
+}
+
+/**
+ * Модели по очереди: перегружена или молчит — следующая. Общий лимит времени, чтобы
+ * вставка не ждала минуту и больше.
+ */
+async function withModelChain<T>(
+  gemini: GeminiConfig,
+  call: (model: string, timeoutMs: number) => Promise<T>,
+  limits: { budgetMs: number; modelTimeoutMs: number } = {
+    budgetMs: AI_BUDGET_MS,
+    modelTimeoutMs: MODEL_TIMEOUT_MS,
+  },
+): Promise<{ ok: true; model: string; value: T } | { ok: false; failures: string[] }> {
+  const failures: string[] = [];
+  const deadline = Date.now() + limits.budgetMs;
+  for (const model of gemini.models) {
+    const remaining = deadline - Date.now();
+    if (remaining < MIN_ATTEMPT_MS) break;
+    try {
+      return {
+        ok: true,
+        model,
+        value: await call(model, Math.min(limits.modelTimeoutMs, remaining)),
+      };
+    } catch (error) {
+      failures.push(`${model}: ${describeFailure(error)}`);
+    }
+  }
+  return { ok: false, failures };
 }
 
 function describeFailure(error: unknown): string {
