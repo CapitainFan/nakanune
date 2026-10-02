@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 describe('parseMoodleIcs', () => {
-  it('берёт сроки, пропускает «открывается», чистит служебные слова Moodle', () => {
+  it('берёт сроки, пропускает «открывается» и посещаемость, чистит служебные слова Moodle', () => {
     const events = parseMoodleIcs(ics);
     expect(
       events.map(({ uid, title, course, dueAt, allDay }) => ({
@@ -56,6 +56,14 @@ describe('parseMoodleIcs', () => {
         dueAt: '2026-10-12T20:59:00.000Z',
         allDay: false,
       },
+      {
+        uid: '1901@edummf.bsu.by',
+        // Внутренние кавычки — часть названия, их не трогаем
+        title: 'Задания по теме «Оператор switch»',
+        course: 'Программирование_С_С++',
+        dueAt: '2026-10-13T17:00:00.000Z',
+        allDay: false,
+      },
     ]);
   });
 
@@ -80,8 +88,16 @@ describe('fetchIcs', () => {
     expect((error as Error).message).not.toContain('secret');
   });
 
-  it('сеть упала — в ошибке нет токена', async () => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError(`fetch failed: ${url}`));
-    await expect(fetchIcs(url)).rejects.toThrow('Moodle недоступен');
+  it('сеть упала — понятная причина, в ошибке нет токена', async () => {
+    const failure = (code: string) =>
+      new TypeError('fetch failed', { cause: Object.assign(new Error(url), { code }) });
+
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(failure('ERR_SSL_WRONG_VERSION_NUMBER'));
+    const vpn = (await fetchIcs(url).catch((caught: unknown) => caught)) as Error;
+    expect(vpn.message).toContain('похоже, мешает VPN или прокси');
+    expect(vpn.message).not.toContain('secret');
+
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(failure('ENOTFOUND'));
+    await expect(fetchIcs(url)).rejects.toThrow('Moodle недоступен: адрес не найден');
   });
 });

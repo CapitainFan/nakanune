@@ -42,7 +42,7 @@ export function AppHeader() {
                 {tab.label}
                 {count > 0 && (
                   <span
-                    className="rounded-full bg-amber-500 px-1.5 text-xs font-medium text-white"
+                    className="rounded-full bg-white px-1.5 text-xs font-medium text-zinc-900 ring-1 ring-zinc-300 dark:ring-0"
                     aria-label={`на проверку: ${count}`}
                   >
                     {count}

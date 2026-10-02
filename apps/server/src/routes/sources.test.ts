@@ -43,13 +43,13 @@ describe('POST /api/sources — календарь Moodle', () => {
 
     const { source, sync } = await addMoodle();
 
-    // Старое событие (5 сентября) и «тест открывается» пропущены
-    expect(sync).toEqual({ status: 'updated', created: 4, updated: 0 });
+    // Старое событие (5 сентября), «тест открывается» и посещаемость пропущены
+    expect(sync).toEqual({ status: 'updated', created: 5, updated: 0 });
     expect(source).toMatchObject({
       type: 'MOODLE_ICS',
       detail: 'edummf.bsu.by',
       lastError: null,
-      taskCount: 4,
+      taskCount: 5,
     });
 
     // Токен не лежит в базе открытым текстом и не уходит в браузер
@@ -96,6 +96,13 @@ describe('POST /api/sources — календарь Moodle', () => {
         title: 'Эссе о профессии',
         subjectId: null,
         dueAt: '2026-10-12T20:59:00.000Z',
+        status: 'INBOX',
+        priority: 'medium',
+      },
+      {
+        title: 'Задания по теме «Оператор switch»',
+        subjectId: null,
+        dueAt: '2026-10-13T17:00:00.000Z',
         status: 'INBOX',
         priority: 'medium',
       },
@@ -160,9 +167,9 @@ describe('POST /api/sources/:id/sync', () => {
 
     const res = await request(app).post(`/api/sources/${source.id}/sync`).expect(502);
     const body = SourceSyncResponseSchema.parse(res.body);
-    expect(body.sync).toEqual({ status: 'failed', error: 'Moodle недоступен' });
-    expect(body.source.lastError).toBe('Moodle недоступен');
-    expect(await prisma.task.count()).toBe(4);
+    expect(body.sync).toEqual({ status: 'failed', error: 'Moodle недоступен: ошибка сети' });
+    expect(body.source.lastError).toBe('Moodle недоступен: ошибка сети');
+    expect(await prisma.task.count()).toBe(5);
   });
 });
 
@@ -216,7 +223,7 @@ describe('GET и DELETE /api/sources', () => {
     ).toEqual(['MOODLE_ICS']);
 
     await request(app).delete(`/api/sources/${source.id}`).expect(204);
-    expect(await prisma.task.count()).toBe(4);
+    expect(await prisma.task.count()).toBe(5);
     expect(await prisma.task.count({ where: { sourceId: { not: null } } })).toBe(0);
     await request(app).delete('/api/sources/manual').expect(400);
   });

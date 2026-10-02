@@ -1,5 +1,6 @@
 import { fromMinskDateTime } from '@nakanune/shared';
 import ical, { type ParameterValue, type VEvent } from 'node-ical';
+import { httpsGetText, missingIntermediate } from '../lib/tlsChain';
 
 /** Событие календаря Moodle, из которого получится задание. */
 export type MoodleEvent = {
@@ -24,6 +25,9 @@ const FETCH_TIMEOUT_MS = 20_000;
 
 // «Тест открывается», «Assignment opens» — это не срок, а начало; такие события пропускаем
 const OPENS = /(?:открыва\p{L}*|открыти\p{L}*|начало|\bopens\b|\bstarts\b)/iu;
+// Отметки модуля «Посещаемость» — это занятия, а не задания (в календаре edummf их больше
+// трети событий)
+const ATTENDANCE = /^\s*(?:посещаемость|attendance)/iu;
 // Служебные слова Moodle вокруг названия: «Лабораторная №2 — срок сдачи», «Quiz 1 closes»
 const MOODLE_WORDS =
   /\s*(?:[-—–:(]\s*)?(?:срок\s+сдачи|должно\s+быть\s+выполнено|закрыва\p{L}*|закрыти\p{L}*|is\s+due|closes|due)\s*\)?\s*/giu;
@@ -33,19 +37,17 @@ const MOODLE_WORDS =
  * ошибок её нет — только причина.
  */
 export async function fetchIcs(url: string): Promise<string> {
-  let response: Response;
+  let response: { status: number; text: string };
   try {
-    response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    response = await download(url);
   } catch (error) {
-    const reason =
-      error instanceof Error && error.name === 'TimeoutError'
-        ? 'не ответил за 20 секунд'
-        : 'недоступен';
-    throw new Error(`Moodle ${reason}`);
+    throw new Error(`Moodle недоступен: ${networkReason(error)}`);
   }
-  if (!response.ok) throw new Error(`Moodle ответил ошибкой ${response.status}`);
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Moodle ответил ошибкой ${response.status}`);
+  }
 
-  const text = await response.text();
+  const { text } = response;
   if (text.length > MAX_ICS_BYTES) throw new Error('Календарь слишком большой (больше 5 МБ)');
   // С устаревшим токеном Moodle отдаёт не календарь, а страницу с ошибкой
   if (!text.includes('BEGIN:VCALENDAR')) {
@@ -61,7 +63,7 @@ export function parseMoodleIcs(text: string): MoodleEvent[] {
     if (component?.type !== 'VEVENT') continue;
     const event = component as VEvent;
     const summary = valueOf(event.summary);
-    if (!summary || OPENS.test(summary) || !event.start) continue;
+    if (!summary || OPENS.test(summary) || ATTENDANCE.test(summary) || !event.start) continue;
 
     const title = cleanTitle(summary);
     const allDay = event.datetype === 'date';
@@ -89,6 +91,64 @@ function endOfDay(date: Date): Date {
   return fromMinskDateTime(key, '23:59');
 }
 
+async function download(url: string): Promise<{ status: number; text: string }> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    return { status: response.status, text: await response.text() };
+  } catch (error) {
+    // Сервер не прислал промежуточный сертификат (так у edummf.bsu.by) — докачиваем его,
+    // как браузер, и повторяем запрос
+    if (causeCode(error) !== 'UNABLE_TO_VERIFY_LEAF_SIGNATURE') throw error;
+    let intermediate: string;
+    try {
+      intermediate = await missingIntermediate(new URL(url).host);
+    } catch (chainError) {
+      const reason = chainError instanceof Error ? chainError.message : String(chainError);
+      throw new Error(
+        `сервер не прислал сертификат издателя, а дозагрузить его не вышло: ${reason}`,
+        {
+          cause: { code: 'INCOMPLETE_CHAIN' },
+        },
+      );
+    }
+    return httpsGetText(url, {
+      intermediate,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      maxBytes: MAX_ICS_BYTES + 1,
+    });
+  }
+}
+
+function causeCode(error: unknown): string {
+  if (!(error instanceof Error)) return '';
+  const own = (error as { code?: unknown }).code;
+  const cause = (error.cause as { code?: unknown } | undefined)?.code;
+  return String(cause ?? own ?? '');
+}
+
+/**
+ * Почему не удалось соединиться — по коду причины (fetch прячет её в error.cause).
+ * Код и текст причины не содержат адреса, так что токен в сообщение не попадёт.
+ */
+function networkReason(error: unknown): string {
+  if (error instanceof Error && error.name === 'TimeoutError') return 'не ответил за 20 секунд';
+  const code = causeCode(error);
+  if (code === 'INCOMPLETE_CHAIN' && error instanceof Error) return error.message;
+  // Вместо TLS пришёл обычный текст — так отвечает VPN или прокси, который сам не достучался
+  // до сайта (сайты БГУ бывают закрыты для зарубежных адресов)
+  if (code === 'ERR_SSL_WRONG_VERSION_NUMBER' || code === 'EPROTO') {
+    return 'защищённое соединение не установилось — похоже, мешает VPN или прокси. Выключи VPN или исключи edummf.bsu.by из него';
+  }
+  if (code.startsWith('ERR_TLS_CERT') || code.includes('CERT') || code.includes('VERIFY')) {
+    return 'сертификат сайта не прошёл проверку';
+  }
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN')
+    return 'адрес не найден — нет интернета или DNS';
+  if (code === 'ECONNREFUSED' || code === 'ECONNRESET') return 'соединение сброшено';
+  if (code === 'ETIMEDOUT' || code === 'UND_ERR_CONNECT_TIMEOUT') return 'сайт не отвечает';
+  return code ? `ошибка сети (${code})` : 'ошибка сети';
+}
+
 function valueOf(value: ParameterValue | undefined): string | null {
   if (value === undefined) return null;
   return typeof value === 'string' ? value : value.val;
@@ -96,10 +156,12 @@ function valueOf(value: ParameterValue | undefined): string | null {
 
 /** «Лабораторная работа №2 — срок сдачи» → «Лабораторная работа №2». Кавычки Moodle — тоже прочь. */
 function cleanTitle(summary: string): string {
-  return summary
+  const title = summary
     .replace(MOODLE_WORDS, ' ')
-    .replace(/^[\s«"„]+|[\s»"“]+$/gu, '')
     .replace(/\s{2,}/g, ' ')
-    .trim()
-    .slice(0, 200);
+    .trim();
+  // Кавычки снимаем, только если они обрамляют всё название: в «Задания по теме «Оператор
+  // switch»» закрывающая кавычка — часть названия
+  const quoted = /^«([^«»]*)»$/u.exec(title) ?? /^"([^"]*)"$/u.exec(title);
+  return (quoted ? quoted[1]!.trim() : title).slice(0, 200);
 }

@@ -120,7 +120,7 @@ export function TelegramPanel({
               Вход выполнен: {status.me?.name}
               {status.me?.username && ` (@${status.me.username})`}
             </p>
-            {chats === null && (
+            {chats === null ? (
               <button
                 type="button"
                 onClick={() => void loadChats()}
@@ -128,6 +128,17 @@ export function TelegramPanel({
                 className={primaryButton}
               >
                 {busy === 'chats' ? 'Загружаю…' : 'Выбрать чаты'}
+              </button>
+            ) : (
+              // Свернуть список; при следующем открытии он загрузится заново (с отметками «добавлен»)
+              <button
+                type="button"
+                onClick={() => setChats(null)}
+                disabled={busy !== null}
+                aria-expanded
+                className={`${ghostButton} text-sm`}
+              >
+                Свернуть
               </button>
             )}
           </div>
