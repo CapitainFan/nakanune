@@ -1,8 +1,9 @@
 import { Prisma } from '@nakanune/db';
 import cors from 'cors';
-import express, { type ErrorRequestHandler } from 'express';
+import express, { type ErrorRequestHandler, type RequestHandler } from 'express';
 import { z } from 'zod';
 import { env } from './env';
+import { requireAuth } from './lib/auth';
 import { HttpError } from './lib/http';
 import { exportRouter } from './routes/export';
 import { extractRouter } from './routes/extract';
@@ -22,10 +23,13 @@ export function createApp() {
   const app = express();
 
   app.disable('x-powered-by');
+  app.use(allowPrivateNetwork);
   app.use(cors({ origin: env.WEB_ORIGIN }));
   app.use(express.json({ limit: '1mb' }));
 
+  // Здоровье — без ключа: ничего не раскрывает, а фронту нужно понять, жив ли сервер
   app.use('/api/health', healthRouter);
+  app.use('/api', requireAuth);
   app.use('/api/subjects', subjectsRouter);
   app.use('/api/tasks', tasksRouter);
   app.use('/api/export', exportRouter);
@@ -41,6 +45,23 @@ export function createApp() {
 
   return app;
 }
+
+/**
+ * Фронт с Vercel (публичный https-сайт) обращается к API на localhost. Chrome перед таким
+ * запросом спрашивает сервер заголовком Access-Control-Request-Private-Network — отвечаем
+ * «можно», но только разрешённым фронтам из WEB_ORIGIN. Любой другой сайт доступа не получит.
+ */
+const allowPrivateNetwork: RequestHandler = (req, res, next) => {
+  const origin = req.get('origin');
+  if (
+    req.get('access-control-request-private-network') === 'true' &&
+    origin &&
+    env.WEB_ORIGIN.includes(origin)
+  ) {
+    res.set('Access-Control-Allow-Private-Network', 'true');
+  }
+  next();
+};
 
 // Коды ошибок Prisma, которые означают ошибку клиента, а не сервера
 const PRISMA_ERRORS: Record<string, { status: number; message: string }> = {

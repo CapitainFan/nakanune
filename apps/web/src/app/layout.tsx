@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { AppHeader } from '@/components/AppHeader';
+import { AuthGate, ChangeTokenLink } from '@/components/AuthGate';
 import { DataLoader } from '@/components/DataLoader';
 import { ServerStatus } from '@/components/ServerStatus';
 import { BRAND_BACKGROUND } from '@/lib/brand';
@@ -45,9 +46,12 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <body className="flex min-h-full flex-col">
         <DataLoader />
         <AppHeader />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">{children}</main>
-        <footer className="mx-auto w-full max-w-5xl px-4 pb-6">
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">
+          <AuthGate>{children}</AuthGate>
+        </main>
+        <footer className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-4 pb-6">
           <ServerStatus />
+          <ChangeTokenLink />
         </footer>
         {/* Тосты вместо самодельного Toast из StudyPlan */}
         <Toaster richColors closeButton position="bottom-right" />

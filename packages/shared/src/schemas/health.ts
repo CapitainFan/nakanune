@@ -11,3 +11,8 @@ export const HealthResponseSchema = z.object({
 });
 
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
+
+/** Ответ GET /api/export/feed: ключ для ссылки на ленту календаря или null (ключа нет). */
+export const CalendarFeedSchema = z.object({ token: z.string().nullable() });
+
+export type CalendarFeed = z.infer<typeof CalendarFeedSchema>;

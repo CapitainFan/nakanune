@@ -9,8 +9,10 @@ services:
       POSTGRES_PASSWORD: nakanune
       POSTGRES_DB: nakanune
     ports:
-      # Снаружи 5433: порт 5432 занят системным PostgreSQL 16 (/Library/PostgreSQL/16)
-      - '5433:5432'
+      # Снаружи 5433: порт 5432 занят системным PostgreSQL 16 (/Library/PostgreSQL/16).
+      # 127.0.0.1 — база доступна только с этого компьютера, не из Wi-Fi-сети: пароль
+      # простой, а в базе сообщения из Telegram
+      - '127.0.0.1:5433:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

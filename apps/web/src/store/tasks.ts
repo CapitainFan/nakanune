@@ -11,7 +11,7 @@ import {
 } from '@nakanune/shared';
 import { toast } from 'sonner';
 import { create } from 'zustand';
-import { api, describeError } from '@/lib/api';
+import { api, describeError, isUnauthorized } from '@/lib/api';
 import { compareTasks } from '@/lib/grouping';
 
 type TasksState = {
@@ -100,7 +100,9 @@ export const useTasksStore = create<TasksState>()((set, get) => {
         set({ subjects, tasks, status: 'ready' });
       } catch (error) {
         set({ status: 'error' });
-        toast.error('Не удалось загрузить задания', { description: describeError(error) });
+        if (!isUnauthorized(error)) {
+          toast.error('Не удалось загрузить задания', { description: describeError(error) });
+        }
       }
     },
 

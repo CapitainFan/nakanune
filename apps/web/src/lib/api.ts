@@ -1,4 +1,5 @@
 import {
+  CalendarFeedSchema,
   CreateTasksReportSchema,
   ExtractResultSchema,
   ScheduleResponseSchema,
@@ -14,6 +15,7 @@ import {
   type TaskCreateInput,
   type TaskUpdateInput,
 } from '@nakanune/shared';
+import { useAuthStore } from '@/store/auth';
 
 /** Адрес API-сервера. Переменные NEXT_PUBLIC_* Next.js подставляет в код при сборке. */
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -33,13 +35,33 @@ export class ApiError extends Error {
 /** Что угодно с методом parse — zod-схема из @nakanune/shared. */
 type Schema<T> = { parse: (data: unknown) => T };
 
+/**
+ * Заголовки для любого запроса к API: ключ доступа (если сервер его требует) и пропуск
+ * страницы-предупреждения бесплатного ngrok — без этого заголовка ngrok отдаёт браузеру
+ * HTML-страницу вместо ответа API.
+ */
+export function apiHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = useAuthStore.getState().token;
+  return {
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...(API_URL.includes('ngrok') && { 'ngrok-skip-browser-warning': '1' }),
+    ...extra,
+  };
+}
+
 async function request<T>(path: string, schema: Schema<T>, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     // JSON по умолчанию; фото доски шлётся как есть, со своим Content-Type
-    headers: init.headers ?? (init.body ? { 'Content-Type': 'application/json' } : undefined),
+    headers: apiHeaders(
+      (init.headers as Record<string, string> | undefined) ??
+        (init.body ? { 'Content-Type': 'application/json' } : {}),
+    ),
   });
   const body: unknown = res.status === 204 ? null : await res.json().catch(() => null);
+
+  // Сервер требует ключ доступа, а его нет или он неверный — показываем форму ключа
+  if (res.status === 401) useAuthStore.getState().markUnauthorized();
 
   // fetch не бросает исключение на 4xx/5xx — проверяем сами. В StudyPlan об этом забыли,
   // и откат оптимистичных обновлений не срабатывал, когда сервер отвечал ошибкой.
@@ -91,6 +113,7 @@ export const api = {
       headers: { 'Content-Type': file.type },
     }),
   getSchedule: () => request('/api/schedule', ScheduleResponseSchema),
+  getCalendarFeed: () => request('/api/export/feed', CalendarFeedSchema),
   syncSchedule: () => request('/api/schedule/sync', ScheduleResponseSchema, { method: 'POST' }),
   getSources: () => request('/api/sources', SourceSchema.array()),
   addSource: (input: SourceCreateInput) =>
@@ -109,6 +132,11 @@ export const api = {
   getTelegramStatus: () => request('/api/telegram/status', TelegramStatusSchema),
   getTelegramChats: () => request('/api/telegram/chats', TelegramChatSchema.array()),
 };
+
+/** Ответ «нужен ключ доступа» — тост не нужен, вместо интерфейса уже форма ключа. */
+export function isUnauthorized(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
 
 /** Текст ошибки для тоста. */
 export function describeError(error: unknown): string {

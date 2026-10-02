@@ -4,9 +4,9 @@ import { prisma } from './db';
 import { env } from './env';
 import { disconnectTelegram } from './telegram/client';
 
-const server = createApp().listen(env.PORT, (error) => {
+const server = createApp().listen(env.PORT, env.HOST, (error) => {
   if (error) throw error;
-  console.log(`Nakanune API: http://localhost:${env.PORT}`);
+  console.log(`Nakanune API: http://${env.HOST}:${env.PORT}`);
 });
 
 // Cron запускается только здесь, а не в createApp(): в тестах фоновых задач не нужно

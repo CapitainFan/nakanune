@@ -8,9 +8,28 @@ import { z } from 'zod';
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
+  // На каком адресе слушать. По умолчанию только этот компьютер: API без авторизации, и
+  // с 0.0.0.0 любой в той же Wi-Fi-сети прочитал бы задания и сообщения из Telegram
+  HOST: z.string().default('127.0.0.1'),
   DATABASE_URL: z.url(),
   // В StudyPlan был cors() для всех сайтов (баг №12) — у нас только адрес фронта.
-  WEB_ORIGIN: z.url().default('http://localhost:3000'),
+  // Ключ доступа к API. Обязателен, если API открыт в интернет (ngrok): без него любой, кто
+  // узнает адрес, прочитает задания и сообщения из Telegram. Сгенерировать:
+  // node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  API_TOKEN: z
+    .string()
+    .optional()
+    .transform((token) => token?.trim() || undefined)
+    .refine(
+      (token) => token === undefined || token.length >= 32,
+      'Ключ доступа — не короче 32 символов',
+    ),
+  // Можно несколько через запятую: локальный фронт и фронт на Vercel
+  WEB_ORIGIN: z
+    .string()
+    .default('http://localhost:3000')
+    .transform((list) => list.split(',').map((origin) => origin.trim().replace(/\/$/, '')))
+    .pipe(z.array(z.url()).min(1)),
   // Когда перепроверять расписание пар (по Минску). По умолчанию — каждый день в 6:00.
   SCHEDULE_CRON: z.string().refine(isValidCron, 'Неверное cron-выражение').default('0 6 * * *'),
   // Без ключа разбор текста работает эвристикой. Пустая строка в .env — тоже «нет ключа».

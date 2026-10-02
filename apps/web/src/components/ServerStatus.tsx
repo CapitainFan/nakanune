@@ -2,7 +2,9 @@
 
 import { HealthResponseSchema, type HealthResponse } from '@nakanune/shared';
 import { useEffect, useState } from 'react';
-import { API_URL } from '@/lib/api';
+import { API_URL, apiHeaders } from '@/lib/api';
+
+const isLocal = /\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(API_URL);
 
 type State = { kind: 'loading' } | { kind: 'ok'; health: HealthResponse } | { kind: 'error' };
 
@@ -13,7 +15,7 @@ export function ServerStatus() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetch(`${API_URL}/api/health`, { signal: controller.signal })
+    fetch(`${API_URL}/api/health`, { signal: controller.signal, headers: apiHeaders() })
       // Без базы сервер отвечает 503, но с тем же телом — поэтому статус не проверяем.
       .then((res) => res.json())
       .then((json) => setState({ kind: 'ok', health: HealthResponseSchema.parse(json) }))
@@ -29,8 +31,14 @@ export function ServerStatus() {
   if (state.kind === 'error') {
     return (
       <p className="text-xs text-red-600 dark:text-red-400">
-        <Dot className="bg-red-500" /> API-сервер не отвечает на {API_URL}. Запусти его:{' '}
-        <code>pnpm dev:server</code>
+        <Dot className="bg-red-500" /> API-сервер не отвечает на {API_URL}.{' '}
+        {isLocal ? (
+          <>
+            Запусти его: <code>pnpm dev:server</code>
+          </>
+        ) : (
+          'Проверь, что на компьютере с сервером запущены сервер и ngrok'
+        )}
       </p>
     );
   }

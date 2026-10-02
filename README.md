@@ -221,6 +221,75 @@ pnpm dev              # API на :4000 и фронт на :3000
   болтовня — Gemini не вызывается. Пачки до 30 сообщений, имён авторов нет.
 - **Статус:** уверенность ≥ 75 и точный срок — сразу в «Задания», иначе во «Входящие».
 
+## Деплой: фронт на Vercel, сервер — на своём компьютере через ngrok
+
+Фронт — только страница с кодом, данных в ней нет. Сервер, база, сессия Telegram и токен Moodle
+живут на твоём компьютере; [ngrok](https://ngrok.com) даёт ему постоянный адрес `https://…ngrok-free.app`,
+а **ключ доступа** (`API_TOKEN`) не пускает никого, кроме тебя.
+
+### Сервер (компьютер, который будет включён)
+
+Понадобятся Git, Node.js 24, Docker Desktop и ngrok.
+
+```bash
+git clone https://github.com/CapitainFan/nakanune.git
+cd nakanune
+npm install -g pnpm@12.6.0
+pnpm install
+cp .env.example .env
+```
+
+В `.env` впиши (ключи — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`):
+
+- `API_TOKEN` — новый ключ; его же введёшь на сайте;
+- `ENCRYPTION_KEY` — `openssl rand -base64 32` (или
+  `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`);
+- `GEMINI_API_KEY`, `TG_API_ID`, `TG_API_HASH`;
+- `WEB_ORIGIN=http://localhost:3000,https://<твой-проект>.vercel.app`.
+
+```bash
+pnpm db:up          # Postgres в Docker
+pnpm db:deploy      # таблицы
+pnpm db:seed        # предметы и расписание
+pnpm tg:login       # вход в Telegram (номер → код → пароль 2FA)
+pnpm start:server   # сервер; cron проверяет источники раз в час
+```
+
+ngrok (бесплатный аккаунт): в [кабинете](https://dashboard.ngrok.com) взять authtoken и бесплатный
+постоянный домен (Domains), затем в отдельном терминале:
+
+```bash
+ngrok config add-authtoken <authtoken>
+ngrok http --url=<домен>.ngrok-free.app 4000
+```
+
+Компьютер не должен засыпать: macOS — `caffeinate -i` в отдельном терминале, Windows — «Электропитание».
+
+### Фронт на Vercel
+
+1. [vercel.com](https://vercel.com) → Add New → Project → импорт репозитория.
+2. **Root Directory** — `apps/web` (установка и сборка — из [apps/web/vercel.json](apps/web/vercel.json):
+   ставятся только фронт и `shared`, без сервера).
+3. **Environment Variables:** `NEXT_PUBLIC_API_URL` = `https://<домен>.ngrok-free.app`,
+   `ENABLE_EXPERIMENTAL_COREPACK` = `1` (чтобы Vercel взял pnpm 12). Адрес API зашивается в сборку —
+   поменял домен, нажми Redeploy.
+4. Открой сайт и введи `API_TOKEN` — браузер запомнит его. «Сменить ключ доступа» — внизу страницы.
+
+### Что защищено
+
+- **Ключ доступа.** Без `Authorization: Bearer <API_TOKEN>` API отвечает 401 (кроме `/api/health`).
+  Ключ не задан — сервер отклоняет любые запросы через туннель (по `X-Forwarded-For`), так что
+  случайно открыть API без ключа нельзя.
+- **Лента календаря** — со своим ключом в ссылке (HMAC от `API_TOKEN`): он открывает только ленту.
+  Ссылку не публикуй.
+- **Сеть.** API и Postgres слушают только `127.0.0.1`: ngrok подключается к серверу локально, а из
+  Wi-Fi-сети их не видно. `HOST=0.0.0.0` не ставь.
+- **CORS** — только для адресов из `WEB_ORIGIN`.
+- **Что видят третьи стороны.** ngrok расшифровывает трафик на своих серверах (так устроены все
+  такие туннели) — технически он видит ответы API. Тексты сообщений, похожих на задания, уходят в
+  Gemini (бесплатный тариф Google использует данные), без имён авторов; не хочешь — убери
+  `GEMINI_API_KEY`. В `NEXT_PUBLIC_*` (попадает в браузер) — только адрес API.
+
 ## Переменные окружения
 
 - `.env` в корне — сервер и Prisma. Шаблон с пояснениями: [.env.example](.env.example).
