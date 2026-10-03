@@ -3,17 +3,18 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { toClassSessionDto, toScheduleSourceDto } from '../dto';
 import { HttpError } from '../lib/http';
-import { syncSchedule } from '../sources/scheduleSync';
+import { loadScheduleSnapshot, syncSchedule } from '../sources/scheduleSync';
 
 export const scheduleRouter = Router();
 
 /** Если сайт не проверяли дольше этого — проверим при следующем открытии приложения. */
-const STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+const STALE_AFTER_MS = 60 * 60 * 1000;
 
 /**
- * Недельное расписание. «Обновлять при использовании»: если сайт давно не проверяли,
- * сразу отдаём то, что есть, а проверку запускаем в фоне (refreshing: true — фронт
- * перезапросит чуть позже). Если расписания ещё нет совсем — ждём первую загрузку.
+ * Недельное расписание. Сайт никогда не ждём: пар в базе нет — берём их из снимка в
+ * репозитории; сайт давно не проверяли — отдаём то, что есть, а проверку запускаем в фоне
+ * (refreshing: true — фронт перезапросит чуть позже). С Render сайт БГУ недоступен — тогда
+ * фоновая проверка тихо не удаётся, а расписание остаётся из снимка.
  */
 scheduleRouter.get('/', async (_req, res) => {
   const source = await findScheduleSource();
@@ -22,10 +23,11 @@ scheduleRouter.get('/', async (_req, res) => {
     return;
   }
 
+  // Пар ещё нет (новая база) — снимок из репозитория, мгновенно и без сайта
+  await loadScheduleSnapshot(source.id);
+
   let refreshing = false;
-  if (!source.lastCheckedAt) {
-    await syncSchedule(source.id);
-  } else if (Date.now() - source.lastCheckedAt.getTime() > STALE_AFTER_MS) {
+  if (!source.lastCheckedAt || Date.now() - source.lastCheckedAt.getTime() > STALE_AFTER_MS) {
     refreshing = true;
     syncSchedule(source.id).catch((error: unknown) => {
       console.error('Фоновая синхронизация расписания упала:', error);

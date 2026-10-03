@@ -10,6 +10,8 @@ export const SourceSchema = z.object({
   /** Без секретов: для Moodle — адрес сайта («edummf.bsu.by»). */
   detail: z.string().nullable(),
   lastCheckedAt: z.iso.datetime({ offset: true }).nullable(),
+  /** Когда данные в последний раз реально обновились (у расписания — с сайта или из снимка). */
+  lastSyncedAt: z.iso.datetime({ offset: true }).nullable(),
   lastError: z.string().nullable(),
   /** Сколько заданий пришло из источника. */
   taskCount: z.number().int(),

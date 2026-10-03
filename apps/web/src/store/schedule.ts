@@ -1,4 +1,4 @@
-import { ScheduleResponseSchema, type ScheduleResponse } from '@nakanune/shared';
+import { ScheduleSyncResponseSchema, type ScheduleResponse } from '@nakanune/shared';
 import { toast } from 'sonner';
 import { create } from 'zustand';
 import { ApiError, api, describeError } from '@/lib/api';
@@ -39,10 +39,17 @@ export const useScheduleStore = create<ScheduleState>()((set, get) => ({
       // Синхронизация могла завести новые предметы — перечитываем их
       await useTasksStore.getState().fetchInitialData();
     } catch (error) {
-      toast.error('Не удалось обновить расписание', { description: describeError(error) });
-      // При ошибке сайта (502) сервер всё равно присылает прежнее расписание и текст ошибки
+      // При ошибке сайта (502) сервер присылает прежнее расписание и причину. Тост сам
+      // исчезнет через несколько секунд — на странице ошибка не остаётся
       const previous =
-        error instanceof ApiError ? ScheduleResponseSchema.safeParse(error.body) : null;
+        error instanceof ApiError ? ScheduleSyncResponseSchema.safeParse(error.body) : null;
+      const reason =
+        previous?.success && previous.data.sync.status === 'failed'
+          ? previous.data.sync.error
+          : null;
+      toast.error('Не удалось обновить расписание', {
+        description: reason ? `${reason}. Показано сохранённое расписание.` : describeError(error),
+      });
       if (previous?.success) set({ schedule: previous.data });
     } finally {
       set({ syncing: false });

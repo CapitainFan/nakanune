@@ -1,0 +1,39 @@
+# Render Blueprint — сервер Nakanune (Express + Prisma). Фронт — на Vercel (apps/web/vercel.json),
+# база — Neon (бесплатная Postgres без срока; бесплатная база Render удаляется через 30 дней).
+# Render → New → Blueprint → этот репозиторий. Значения с sync: false Render спросит при создании.
+services:
+  - type: web
+    name: nakanune-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    # pnpm 12 — через npx: так версия точно совпадёт с packageManager. Ставятся только сервер,
+    # база и shared (без фронта); потом миграции и сид (предметы, источник расписания)
+    buildCommand: >-
+      npx --yes pnpm@12.6.0 install --frozen-lockfile --filter "@nakanune/server..." &&
+      npx --yes pnpm@12.6.0 --filter @nakanune/db migrate:deploy &&
+      npx --yes pnpm@12.6.0 --filter @nakanune/db seed
+    startCommand: cd apps/server && node --import tsx src/index.ts
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: '24'
+      - key: NODE_ENV
+        value: production
+      # Render принимает запросы снаружи — слушать все адреса. Без API_TOKEN сервер не стартует
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        sync: false
+      - key: API_TOKEN
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TG_API_ID
+        sync: false
+      - key: TG_API_HASH
+        sync: false

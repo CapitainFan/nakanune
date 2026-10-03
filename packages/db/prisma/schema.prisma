@@ -88,6 +88,9 @@ model Source {
   config        Json // telegram: { peer } | ics: { urlEncrypted, host } | расписание: { url, defaultSubgroup, firstWeekDate }
   enabled       Boolean        @default(true)
   lastCheckedAt DateTime?
+  // Когда данные источника в последний раз реально обновились: с сайта или из снимка в
+  // репозитории (у расписания). lastCheckedAt — когда проверяли, даже если не вышло
+  lastSyncedAt  DateTime?
   lastCursor    String? // TG: id последнего сообщения; ICS и расписание: хэш содержимого
   lastError     String?
   rawMessages   RawMessage[]

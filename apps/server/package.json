@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "tg:login": "tsx --env-file-if-exists=../../.env src/telegram/login.ts",
-    "tg:logout": "tsx --env-file-if-exists=../../.env src/telegram/logout.ts"
+    "tg:logout": "tsx --env-file-if-exists=../../.env src/telegram/logout.ts",
+    "schedule:snapshot": "tsx --env-file-if-exists=../../.env src/sources/scheduleSnapshot.cli.ts"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",

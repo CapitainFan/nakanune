@@ -8,8 +8,8 @@ import { syncAllSources } from './sources/syncAll';
 /**
  * Фоновые задачи сервера:
  * - источники заданий (Moodle, потом Telegram) — по CRON_SCHEDULE, по умолчанию раз в час;
- * - расписание пар — «изредка», по SCHEDULE_CRON (раз в сутки). Второй триггер —
- *   открытие приложения (GET /api/schedule).
+ * - расписание пар — по SCHEDULE_CRON (раз в час). Второй триггер — открытие приложения
+ *   (GET /api/schedule). Сайт недоступен — остаётся прежнее расписание или снимок.
  */
 export function startCron() {
   schedule(

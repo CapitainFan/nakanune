@@ -30,8 +30,9 @@ const EnvSchema = z.object({
     .default('http://localhost:3000')
     .transform((list) => list.split(',').map((origin) => origin.trim().replace(/\/$/, '')))
     .pipe(z.array(z.url()).min(1)),
-  // Когда перепроверять расписание пар (по Минску). По умолчанию — каждый день в 6:00.
-  SCHEDULE_CRON: z.string().refine(isValidCron, 'Неверное cron-выражение').default('0 6 * * *'),
+  // Когда пробовать обновить расписание пар с сайта (по Минску). По умолчанию — раз в час;
+  // не вышло (с Render сайт БГУ недоступен) — остаётся то, что есть, или снимок из репозитория
+  SCHEDULE_CRON: z.string().refine(isValidCron, 'Неверное cron-выражение').default('0 * * * *'),
   // Без ключа разбор текста работает эвристикой. Пустая строка в .env — тоже «нет ключа».
   GEMINI_API_KEY: z
     .string()
@@ -79,6 +80,13 @@ function loadEnv(): Env {
   const result = EnvSchema.safeParse(process.env);
   if (!result.success) {
     console.error(`Неверные переменные окружения:\n${z.prettifyError(result.error)}`);
+    process.exit(1);
+  }
+  // Открыт наружу (Render, HOST=0.0.0.0) без ключа доступа — не стартуем: иначе любой
+  // прочитал бы задания и сообщения из Telegram
+  const local = ['127.0.0.1', 'localhost', '::1'].includes(result.data.HOST);
+  if (!local && !result.data.API_TOKEN) {
+    console.error(`HOST=${result.data.HOST} открывает API наружу — задай API_TOKEN (32+ символа)`);
     process.exit(1);
   }
   return result.data;

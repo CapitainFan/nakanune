@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetDb, setupSchedule } from '../../test/helpers';
 import { mockScheduleSite, scheduleFixture } from '../../test/schedule-site';
 import { prisma } from '../db';
-import { syncSchedule } from './scheduleSync';
+import { readScheduleSnapshot, type ScheduleSnapshot } from './scheduleSnapshot';
+import { loadScheduleSnapshot, syncSchedule } from './scheduleSync';
 
 beforeEach(resetDb);
 afterEach(() => {
@@ -77,17 +78,20 @@ describe('syncSchedule', () => {
     expect(await prisma.classSession.count()).toBe(MY_CLASSES - 1);
   });
 
-  it('ошибка сайта не стирает расписание, а попадает в lastError', async () => {
+  it('ошибка сайта не стирает расписание и не сохраняется в источнике', async () => {
     const source = await setupSchedule();
     mockScheduleSite();
     await syncSchedule(source.id);
 
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('сеть недоступна'));
-    expect(await syncSchedule(source.id)).toEqual({ status: 'failed', error: 'сеть недоступна' });
+    expect(await syncSchedule(source.id)).toEqual({
+      status: 'failed',
+      error: 'Сайт ММФ недоступен с сервера (сеть недоступна)',
+    });
 
     expect(await prisma.classSession.count()).toBe(MY_CLASSES);
     const saved = await prisma.source.findUniqueOrThrow({ where: { id: source.id } });
-    expect(saved.lastError).toBe('сеть недоступна');
+    expect(saved.lastError).toBeNull();
   });
 
   it('если сайт поменял вёрстку и пар не нашлось — старое расписание остаётся', async () => {
@@ -110,5 +114,55 @@ describe('syncSchedule', () => {
 
     expect(first).toEqual(second);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('loadScheduleSnapshot — расписание из снимка в репозитории', () => {
+  const snapshot = (fetchedAt: string, html = scheduleFixture): ScheduleSnapshot => ({
+    url: 'https://mmf.bsu.by/ru/raspisanie-zanyatij/dnevnoe-otdelenie/1-kurs/2-gruppa/',
+    fetchedAt,
+    html,
+  });
+
+  it('снимок в репозитории читается и даёт мои 23 пары — без запросов к сайту', async () => {
+    const source = await setupSchedule();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    expect(await loadScheduleSnapshot(source.id)).toBe('imported');
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(await prisma.classSession.count()).toBe(MY_CLASSES);
+    const saved = await prisma.source.findUniqueOrThrow({ where: { id: source.id } });
+    expect(saved.lastSyncedAt?.toISOString()).toBe((await readScheduleSnapshot())!.fetchedAt);
+  });
+
+  it('свежие данные с сайта старым снимком не затираются', async () => {
+    const source = await setupSchedule();
+    mockScheduleSite();
+    await syncSchedule(source.id);
+
+    const old = snapshot('2026-09-01T00:00:00.000Z', '<table></table>');
+    expect(await loadScheduleSnapshot(source.id, old)).toBe('skipped');
+    expect(await prisma.classSession.count()).toBe(MY_CLASSES);
+  });
+
+  it('снимок новее данных в базе — заменяет их', async () => {
+    const source = await setupSchedule();
+    await loadScheduleSnapshot(source.id, snapshot('2026-09-28T00:00:00.000Z'));
+
+    // В новом снимке нет одной пары (её убрали из расписания)
+    const rows = scheduleFixture.split('</tr>');
+    const fewer = [...rows.slice(0, 3), ...rows.slice(4)].join('</tr>');
+    expect(await loadScheduleSnapshot(source.id, snapshot('2026-10-05T00:00:00.000Z', fewer))).toBe(
+      'imported',
+    );
+    expect(await prisma.classSession.count()).toBeLessThan(MY_CLASSES);
+  });
+
+  it('снимок другой группы — не трогает', async () => {
+    const source = await setupSchedule();
+    const other = { ...snapshot('2026-10-05T00:00:00.000Z'), url: 'https://mmf.bsu.by/ru/other/' };
+    expect(await loadScheduleSnapshot(source.id, other)).toBe('skipped');
+    expect(await prisma.classSession.count()).toBe(0);
   });
 });

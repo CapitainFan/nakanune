@@ -50,6 +50,8 @@ export const ScheduleResponseSchema = z.object({
       url: z.url(),
       firstWeekDate: z.iso.date(),
       lastCheckedAt: z.iso.datetime({ offset: true }).nullable(),
+      /** Когда расписание в последний раз реально обновилось: с сайта или из снимка. */
+      lastSyncedAt: z.iso.datetime({ offset: true }).nullable(),
       lastError: z.string().nullable(),
     })
     .nullable(),
@@ -59,3 +61,14 @@ export const ScheduleResponseSchema = z.object({
 });
 
 export type ScheduleResponse = z.infer<typeof ScheduleResponseSchema>;
+
+/** Ответ POST /api/schedule/sync: итог обновления с сайта и расписание (при ошибке — прежнее). */
+export const ScheduleSyncResponseSchema = ScheduleResponseSchema.extend({
+  sync: z.discriminatedUnion('status', [
+    z.object({ status: z.literal('updated'), classes: z.number().int() }),
+    z.object({ status: z.literal('unchanged') }),
+    z.object({ status: z.literal('failed'), error: z.string() }),
+  ]),
+});
+
+export type ScheduleSyncResponse = z.infer<typeof ScheduleSyncResponseSchema>;

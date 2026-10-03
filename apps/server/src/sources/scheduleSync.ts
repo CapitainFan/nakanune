@@ -4,6 +4,7 @@ import { ScheduleConfigSchema, normalizeTitle, type ScheduleConfig } from '@naka
 import { prisma } from '../db';
 import { makeShortCode } from '../lib/shortCode';
 import { fetchScheduleHtml, parseScheduleTable, type ScheduleRow } from './mmfSchedule';
+import { readScheduleSnapshot, type ScheduleSnapshot } from './scheduleSnapshot';
 
 export type ScheduleSyncResult =
   | { status: 'updated'; classes: number }
@@ -17,7 +18,9 @@ const inFlight = new Map<string, Promise<ScheduleSyncResult>>();
 /**
  * Перечитывает расписание с сайта. Если страница не изменилась (тот же хэш), пары не трогает;
  * force — пересобрать всё равно (например, после смены подгруппы).
- * Ошибка не бросается наружу, а пишется в Source.lastError — старое расписание остаётся.
+ * Ошибка не бросается наружу и не сохраняется в источнике: сайт бывает недоступен с сервера
+ * (Render за границей) — тогда остаётся прежнее расписание или снимок из репозитория, а ошибку
+ * видно только в ответе на «Обновить» и в логе сервера.
  */
 export function syncSchedule(
   sourceId: string,
@@ -42,9 +45,11 @@ async function runSync(sourceId: string, force: boolean): Promise<ScheduleSyncRe
     const hash = createHash('sha1').update(html).digest('hex');
 
     if (!force && hash === source.lastCursor) {
+      // Сайт не изменился — расписание актуально на сейчас
+      const now = new Date();
       await prisma.source.update({
         where: { id: sourceId },
-        data: { lastCheckedAt: new Date(), lastError: null },
+        data: { lastCheckedAt: now, lastSyncedAt: now, lastError: null },
       });
       return { status: 'unchanged' };
     }
@@ -53,15 +58,55 @@ async function runSync(sourceId: string, force: boolean): Promise<ScheduleSyncRe
     // Если сайт поменял вёрстку и парсер ничего не нашёл — не стираем расписание
     if (rows.length === 0) throw new Error('В таблице расписания не нашлось ни одной пары');
 
-    const classes = await saveSchedule(sourceId, config, rows, hash);
+    const classes = await saveSchedule(sourceId, config, rows, hash, new Date());
     return { status: 'updated', classes };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const reason = error instanceof Error ? error.message : String(error);
+    const message = `Сайт ММФ недоступен с сервера (${reason})`;
+    console.warn(`Расписание: ${message}`);
+    // lastCheckedAt — чтобы не стучаться на сайт при каждом открытии; ошибку не храним
     await prisma.source.update({
       where: { id: sourceId },
-      data: { lastCheckedAt: new Date(), lastError: message },
+      data: { lastCheckedAt: new Date(), lastError: null },
     });
     return { status: 'failed', error: message };
+  }
+}
+
+/**
+ * Расписание из снимка в репозитории — без запросов к сайту. Загружается, если в базе пар нет
+ * или снимок новее того, что в базе (его обновили и закоммитили). Свежие данные с сайта
+ * старым снимком не затираются.
+ */
+export async function loadScheduleSnapshot(
+  sourceId: string,
+  snapshot?: ScheduleSnapshot | null,
+): Promise<'imported' | 'skipped'> {
+  const source = await prisma.source.findUniqueOrThrow({ where: { id: sourceId } });
+  const config = ScheduleConfigSchema.parse(source.config);
+  const data = snapshot === undefined ? await readScheduleSnapshot() : snapshot;
+  if (!data || data.url !== config.url) return 'skipped';
+
+  const fetchedAt = new Date(data.fetchedAt);
+  const hasClasses = (await prisma.classSession.count({ where: { sourceId } })) > 0;
+  const newer = !source.lastSyncedAt || fetchedAt > source.lastSyncedAt;
+  if (hasClasses && !newer) return 'skipped';
+
+  const rows = parseScheduleTable(data.html);
+  if (rows.length === 0) return 'skipped';
+  const hash = createHash('sha1').update(data.html).digest('hex');
+  await saveSchedule(sourceId, config, rows, hash, fetchedAt);
+  return 'imported';
+}
+
+/** При запуске сервера: у каждого расписания есть пары — хотя бы из снимка. */
+export async function prepareSchedules(): Promise<void> {
+  const sources = await prisma.source.findMany({ where: { type: 'MMF_SCHEDULE', enabled: true } });
+  const snapshot = await readScheduleSnapshot();
+  for (const source of sources) {
+    if ((await loadScheduleSnapshot(source.id, snapshot)) === 'imported') {
+      console.log(`Расписание «${source.title}»: загружено из снимка от ${snapshot?.fetchedAt}`);
+    }
   }
 }
 
@@ -71,6 +116,8 @@ async function saveSchedule(
   config: ScheduleConfig,
   rows: ScheduleRow[],
   hash: string,
+  // Когда данные взяты с сайта: сейчас или время снимка
+  syncedAt: Date,
 ): Promise<number> {
   return prisma.$transaction(async (tx) => {
     // Предмет ищем по названию и алиасам: в расписании бывают опечатки
@@ -118,7 +165,12 @@ async function saveSchedule(
     await tx.classSession.createMany({ data });
     await tx.source.update({
       where: { id: sourceId },
-      data: { lastCursor: hash, lastCheckedAt: new Date(), lastError: null },
+      data: {
+        lastCursor: hash,
+        lastCheckedAt: new Date(),
+        lastSyncedAt: syncedAt,
+        lastError: null,
+      },
     });
     return data.length;
   });

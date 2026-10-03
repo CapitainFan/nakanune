@@ -26,7 +26,8 @@
     "db:reset": "pnpm --filter @nakanune/db reset",
     "db:studio": "pnpm --filter @nakanune/db studio",
     "tg:login": "pnpm --filter @nakanune/server tg:login",
-    "tg:logout": "pnpm --filter @nakanune/server tg:logout"
+    "tg:logout": "pnpm --filter @nakanune/server tg:logout",
+    "schedule:snapshot": "pnpm --filter @nakanune/server schedule:snapshot"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

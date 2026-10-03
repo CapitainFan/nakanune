@@ -83,6 +83,7 @@ export function toScheduleSourceDto(source: Source): NonNullable<ScheduleRespons
     url: config.url,
     firstWeekDate: config.firstWeekDate,
     lastCheckedAt: source.lastCheckedAt?.toISOString() ?? null,
+    lastSyncedAt: source.lastSyncedAt?.toISOString() ?? null,
     lastError: source.lastError,
   };
 }
@@ -103,6 +104,7 @@ export function toSourceDto(source: Source & { _count: { tasks: number } }): Sou
     enabled: source.enabled,
     detail,
     lastCheckedAt: source.lastCheckedAt?.toISOString() ?? null,
+    lastSyncedAt: source.lastSyncedAt?.toISOString() ?? null,
     lastError: source.lastError,
     taskCount: source._count.tasks,
   };

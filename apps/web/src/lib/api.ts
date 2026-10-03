@@ -3,6 +3,7 @@ import {
   CreateTasksReportSchema,
   ExtractResultSchema,
   ScheduleResponseSchema,
+  ScheduleSyncResponseSchema,
   SourceSchema,
   SourceSyncResponseSchema,
   SubjectSchema,
@@ -114,7 +115,7 @@ export const api = {
     }),
   getSchedule: () => request('/api/schedule', ScheduleResponseSchema),
   getCalendarFeed: () => request('/api/export/feed', CalendarFeedSchema),
-  syncSchedule: () => request('/api/schedule/sync', ScheduleResponseSchema, { method: 'POST' }),
+  syncSchedule: () => request('/api/schedule/sync', ScheduleSyncResponseSchema, { method: 'POST' }),
   getSources: () => request('/api/sources', SourceSchema.array()),
   addSource: (input: SourceCreateInput) =>
     request('/api/sources', SourceSyncResponseSchema, withJson('POST', input)),

@@ -117,9 +117,12 @@ export function SourcesView() {
                     </span>
                   </p>
                   <p className="text-sm text-zinc-500">
-                    {source.lastCheckedAt
-                      ? `Проверено ${format(source.lastCheckedAt, 'd MMMM, HH:mm', { locale: ru, in: inMinsk })}`
-                      : 'Ещё не проверялся'}
+                    {source.type === 'MMF_SCHEDULE'
+                      ? source.lastSyncedAt &&
+                        `Данные от ${format(source.lastSyncedAt, 'd MMMM, HH:mm', { locale: ru, in: inMinsk })}`
+                      : source.lastCheckedAt
+                        ? `Проверено ${format(source.lastCheckedAt, 'd MMMM, HH:mm', { locale: ru, in: inMinsk })}`
+                        : 'Ещё не проверялся'}
                     {source.type !== 'MMF_SCHEDULE' && ` · заданий: ${source.taskCount}`}
                   </p>
                   {source.lastError && (

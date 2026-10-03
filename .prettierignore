@@ -6,6 +6,8 @@ apps/web/next-env.d.ts
 
 # Фикстуры тестов — точные копии внешних данных, форматировать их нельзя
 **/test/fixtures/
+# Снимок расписания с сайта факультета (HTML внутри JSON)
+apps/server/data/
 
 # Эти файлы пишет и перезаписывает `next dev`
 apps/web/AGENTS.md

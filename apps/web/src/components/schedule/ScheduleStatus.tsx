@@ -28,15 +28,12 @@ export function ScheduleStatus() {
           >
             сайта ММФ
           </a>
-          {source.lastCheckedAt &&
-            ` · проверено ${format(source.lastCheckedAt, 'd MMMM, HH:mm', { locale: ru, in: inMinsk })}`}
+          {/* Дата данных, а не проверки: с сервера за границей сайт бывает недоступен, и тогда
+              расписание — из снимка в репозитории. Ошибку обновления показывает только тост */}
+          {source.lastSyncedAt &&
+            ` · данные от ${format(source.lastSyncedAt, 'd MMMM, HH:mm', { locale: ru, in: inMinsk })}`}
           {schedule.refreshing && ' · проверяю, не изменилось ли…'}
         </p>
-        {source.lastError && (
-          <p className="mt-1 text-red-600 dark:text-red-400">
-            Не удалось обновить: {source.lastError}
-          </p>
-        )}
       </div>
       <button
         type="button"
